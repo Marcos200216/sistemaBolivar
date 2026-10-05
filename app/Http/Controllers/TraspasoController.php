@@ -39,24 +39,26 @@ class TraspasoController extends Controller
 
     /** Facturas nuevas de crédito con pendiente, para el selector "facturas específicas". */
     public function facturasPendientes(Cliente $cliente, OperacionService $servicio)
-    {
-        $facturas = Factura::nuevas()
-            ->where('cliente_id', $cliente->id)
-            ->where('estado', EstadoFactura::Credito->value)
-            ->orderBy('created_at')
-            ->with('operacion')
-            ->get()
-            ->map(fn (Factura $f) => [
-                'id' => $f->id,
-                'numero' => $f->operacion?->numero,
-                'fecha' => optional($f->operacion?->fecha ?? $f->created_at)->format('d/m/Y'),
-                'pendiente' => $servicio->pendienteFactura($f),
-            ])
-            ->filter(fn ($f) => $f['pendiente'] >= 0.01)
-            ->values();
+{
+    $facturas = Factura::query()
+        ->where('cliente_id', $cliente->id)
+        ->where('estado', EstadoFactura::Credito->value)
+        ->orderByRaw('COALESCE(facturas.fecha, facturas.created_at)')
+        ->orderBy('facturas.id')
+        ->with('operacion')
+        ->get()
+        ->map(fn (Factura $f) => [
+            'id' => $f->id,
+                        'migrada' => $f->operacion_id === null,
+            'numero' => $f->operacion?->numero ?? $f->factura_id_legacy,
+            'fecha' => \Carbon\Carbon::parse($f->fecha ?? $f->operacion?->fecha ?? $f->created_at)->format('d/m/Y'),
+            'pendiente' => $servicio->pendienteFactura($f),
+        ])
+        ->filter(fn ($f) => $f['pendiente'] >= 0.01)
+        ->values();
 
-        return response()->json($facturas);
-    }
+    return response()->json($facturas);
+}
 
     /**
      * Guarda el traspaso. Los recibos NO se envían acá: la pantalla llama a

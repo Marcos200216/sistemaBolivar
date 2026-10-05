@@ -150,7 +150,9 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
     if ($factura->estado === EstadoFactura::Anulada->value) {
         throw new OperacionException('Esta factura ya está anulada.');
     }
-
+    if ($factura->operacion_id === null) {
+        throw new OperacionException('Las facturas migradas del sistema anterior no se pueden anular. Hacé una devolución en su lugar.');
+    }
     $limite = now()->subHours(self::HORAS_LIMITE_ANULACION);
     if ($factura->created_at && $factura->created_at->lt($limite)) {
         throw new OperacionException(
@@ -243,7 +245,7 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
 
         if (!empty($facturaIds)) {
             // Traspaso de facturas específicas
-            $facturas = Factura::nuevas()
+            $facturas = Factura::query()
                 ->where('cliente_id', $origen->id)
                 ->where('estado', EstadoFactura::Credito->value)
                 ->whereIn('id', $facturaIds)
@@ -266,11 +268,7 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
             // (residuo antiguo primero, luego facturas nuevas de más vieja a más nueva)
             $monto = $saldoOrigen;
 
-            $facturas = Factura::nuevas()
-                ->where('cliente_id', $origen->id)
-                ->where('estado', EstadoFactura::Credito->value)
-                ->orderBy('created_at')->orderBy('id')
-                ->get();
+                        $facturas = $this->facturasCreditoAbiertas($origen->id);
 
             $pendientesPorFactura = [];
             $sumaPendientes = 0;
@@ -401,11 +399,7 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
 
         $plan = []; // [factura_id|null, monto_centimos]
         if ($aplicar > 0) {
-            $facturas = Factura::nuevas()
-                ->where('cliente_id', $destino->id)
-                ->where('estado', EstadoFactura::Credito->value)
-                ->orderBy('created_at')->orderBy('id')
-                ->get();
+                       $facturas = $this->facturasCreditoAbiertas($destino->id);
 
             $pendientes = [];
             $suma = 0;
@@ -944,11 +938,7 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
         // así que esta consulta ya la incluye sola.
         $pendientes = [];
         $sumaPendientes = 0;
-        $facturas = Factura::nuevas()
-            ->where('cliente_id', $cliente->id)
-            ->where('estado', EstadoFactura::Credito->value)
-            ->orderBy('created_at')->orderBy('id')
-            ->get();
+                $facturas = $this->facturasCreditoAbiertas($cliente->id);
         foreach ($facturas as $f) {
             $p = $this->pendiente($f);
             if ($p > 0) {
@@ -975,7 +965,7 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
                 if (!$f || (int) $f->cliente_id !== (int) $cliente->id) {
                     throw new OperacionException('La factura elegida no pertenece a este cliente.');
                 }
-                $tope = $f->operacion_id !== null ? ($pendientes[$f->id] ?? 0) : $residuoAntiguo;
+               $tope = $pendientes[$f->id] ?? 0;
             }
             if ($tope <= 0) {
                 throw new OperacionException('Esa cuenta no tiene deuda pendiente.');
@@ -1037,14 +1027,35 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
     // Utilidades
     // ------------------------------------------------------------------
 
-    /** Pendiente (céntimos) de una factura NUEVA: total − abonos − devoluciones. */
-    private function pendiente(Factura $f): int
-    {
-        $abonado = $this->c(Abono::where('factura_id', $f->id)->sum('monto_abono'));
-        $devuelto = $this->c(Devolucion::where('factura_id', $f->id)->sum('total'));
 
-        return max(0, $this->c($f->total) - $abonado - $devuelto);
+
+
+private function facturasCreditoAbiertas(int $clienteId)
+{
+    return Factura::query()
+        ->where('cliente_id', $clienteId)
+        ->where('estado', EstadoFactura::Credito->value)
+        ->orderByRaw('COALESCE(facturas.fecha, facturas.created_at)')
+        ->orderBy('facturas.id')
+        ->get();
+}
+    /** Pendiente (céntimos) de una factura NUEVA: total − abonos − devoluciones. */
+   private function pendiente(Factura $f): int
+{
+    $abonos = Abono::where('factura_id', $f->id);
+    $devs = Devolucion::where('factura_id', $f->id);
+
+    if ($f->operacion_id === null) {
+        // Migrada: saldo_migrado ya refleja lo abonado/devuelto en el sistema viejo
+        $abonos->whereNotNull('operacion_id');
+        $devs->whereNotNull('operacion_id');
+        $base = $this->c($f->saldo_migrado);
+    } else {
+        $base = $this->c($f->total);
     }
+
+    return max(0, $base - $this->c($abonos->sum('monto_abono')) - $this->c($devs->sum('total')));
+}
 
     private function actualizarEstados(array $facturaIds): void
     {
@@ -1052,7 +1063,7 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
             return;
         }
 
-        $facturas = Factura::nuevas()
+               $facturas = Factura::query()
             ->whereIn('id', $facturaIds)
             ->whereIn('estado', [EstadoFactura::Credito->value, EstadoFactura::Saldada->value])
             ->get();

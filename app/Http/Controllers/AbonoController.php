@@ -154,6 +154,9 @@ class AbonoController extends Controller
             $p = $grupo->first();
             $monto = round((float) $grupo->sum('monto_abono'), 2);
             $tr = $traspasoDe($p->operacion_id);
+                        if ($tr) {
+                continue; // los traspasos se arman más abajo, una fila por operación
+            }
 
             // A qué factura(s) se aplicó el abono
             $aplicado = $grupo->pluck('factura_id')->unique()->map(function ($fid) use ($facturasPorId, $numeroFactura) {
@@ -233,6 +236,9 @@ class AbonoController extends Controller
 
             $partes = [];
             $tr = $traspasoDe($f->operacion_id);
+                        if ($tr) {
+                continue; // la factura del traspaso se muestra en la fila del traspaso
+            }
             if ($tr) {
                 $etiqueta = 'Traspaso recibido';
                 $partes[] = 'deuda trasladada desde ' . $tr['nombre'];
@@ -301,6 +307,42 @@ class AbonoController extends Controller
             ];
         }
 
+
+                // Traspasos: una sola fila por operación, con la dirección y el tipo bien dichos.
+        // El origen siempre se crea primero: su pareja tiene el número siguiente.
+        foreach ($ops->where('tipo', 'traspaso') as $op) {
+            $efecto = round((float) $op->saldo_final - (float) $op->saldo_inicial, 2);
+
+            $esOrigen = Operacion::withoutGlobalScopes()
+                ->where('sucursal_id', $op->sucursal_id)
+                ->where('cliente_id', $op->traspaso_cliente_id)
+                ->where('traspaso_cliente_id', $op->cliente_id)
+                ->where('tipo', 'traspaso')
+                ->where('numero', $op->numero + 1)
+                ->exists();
+
+            $aFavor = $esOrigen ? ((float) $op->saldo_inicial < 0) : ($efecto < 0);
+            $otro = $nombresTraspaso->get($op->traspaso_cliente_id) ?? 'otro cliente';
+            $que = $aFavor ? 'Saldo a favor trasladado' : 'Deuda trasladada';
+
+            $items[] = [
+                'tipo' => 'traspaso',
+                'etiqueta' => $esOrigen ? 'Traspaso enviado' : 'Traspaso recibido',
+                'es_traspaso' => true,
+                'orden' => 2,
+                'id' => $op->id,
+                'operacion_id' => $op->id,
+                'abono_id' => null,
+                'factura_id' => null,
+                'fecha_obj' => $momento($op->id, $op->created_at),
+                'monto' => abs($efecto),
+                'efectivo' => 0.0,
+                'sinpe' => 0.0,
+                'efecto' => $efecto,
+                'detalle' => $que . ($esOrigen ? ' a ' : ' desde ') . $otro,
+                'saldo' => null,
+            ];
+        }
         // Saldo después de cada movimiento — solo operaciones nuevas.
         $porOperacion = [];
         foreach ($items as $k => $it) {

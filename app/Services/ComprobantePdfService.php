@@ -100,6 +100,7 @@ class ComprobantePdfService
             'cuentas' => $this->cuentasAlEmitir($operacion, $cliente),
             'destinos' => $this->destinosAbono($operacion),
             'facturaAnulada' => $facturaAnulada,
+                        'traspaso' => $this->infoTraspaso($operacion),
             'paraPdf' => $paraPdf,
             'titulo' => $this->tipoDocumento($operacion)['titulo'],
         ];
@@ -117,17 +118,30 @@ class ComprobantePdfService
      *   total siempre coincida con operaciones.saldo_inicial / saldo_final.
      * - Todo en céntimos (enteros) para evitar errores de redondeo.
      */
-    private function cuentasAlEmitir(Operacion $operacion, Cliente $cliente): array
+        private function cuentasAlEmitir(Operacion $operacion, Cliente $cliente): array
     {
         $c = fn ($v) => (int) round(((float) $v) * 100);
         $m = fn (int $centimos) => round($centimos / 100, 2);
 
-        $facturas = Factura::nuevas()
+        // Facturas migradas: solo entran como fila si ESTA operación les movió algo.
+        $idsMigradasMovidas = Abono::where('operacion_id', $operacion->id)->whereNotNull('factura_id')->pluck('factura_id')
+            ->merge(Devolucion::where('operacion_id', $operacion->id)->pluck('factura_id'))
+            ->unique()->values();
+
+        $facturas = Factura::query()
             ->where('cliente_id', $cliente->id)
             ->whereIn('estado', [EstadoFactura::Credito->value, EstadoFactura::Saldada->value])
-            ->where('operacion_id', '<=', $operacion->id)
+            ->where(function ($q) use ($operacion, $idsMigradasMovidas) {
+                $q->where(function ($n) use ($operacion) {
+                    $n->whereNotNull('operacion_id')->where('operacion_id', '<=', $operacion->id);
+                })->orWhere(function ($mg) use ($idsMigradasMovidas) {
+                    $mg->whereNull('operacion_id')->whereIn('id', $idsMigradasMovidas);
+                });
+            })
             ->with('operacion')
-            ->orderBy('operacion_id')
+            ->orderBy('facturas.operacion_id')
+            ->orderByRaw('COALESCE(facturas.fecha, facturas.created_at)')
+            ->orderBy('facturas.id')
             ->get();
 
         $filas = [];
@@ -135,7 +149,8 @@ class ComprobantePdfService
         $sumDespues = 0;
 
         foreach ($facturas as $f) {
-            $total = $c($f->total);
+            // Migrada: parte de saldo_migrado (ya refleja lo abonado en el sistema anterior)
+            $total = $f->operacion_id === null ? $c($f->saldo_migrado) : $c($f->total);
 
             $abonadoHasta = $c(Abono::where('factura_id', $f->id)->where('operacion_id', '<=', $operacion->id)->sum('monto_abono'));
             $abonadoEsta = $c(Abono::where('factura_id', $f->id)->where('operacion_id', $operacion->id)->sum('monto_abono'));
@@ -156,11 +171,12 @@ class ComprobantePdfService
             $sumAntes += $antes;
             $sumDespues += $despues;
 
-            $fecha = $f->operacion?->fecha ?? $f->operacion?->created_at ?? $f->created_at;
+            $fecha = $f->fecha ?? $f->operacion?->fecha ?? $f->operacion?->created_at ?? $f->created_at;
+            $numero = $f->operacion_id ? $f->operacion?->numero : $f->factura_id_legacy;
 
             $notaCreada = $f->operacion?->tipo === 'traspaso' ? 'traspaso de cuenta' : 'compra de esta visita';
             $filas[] = [
-                'etiqueta' => 'Factura #' . ($f->operacion?->numero ?? '—'),
+                'etiqueta' => 'Factura #' . ($numero ?? '—'),
                 'fecha' => optional($fecha)->format('d/m/Y'),
                 'nota' => $creada ? $notaCreada : null,
                 'antes' => $m($antes),
@@ -170,7 +186,7 @@ class ComprobantePdfService
             ];
         }
 
-        // Todo lo que no es factura nueva: deuda del sistema anterior o saldo a favor
+        // Todo lo que no es una fila de arriba: deuda del sistema anterior sin movimiento o saldo a favor
         $resAntes = $c($operacion->saldo_inicial) - $sumAntes;
         $resDespues = $c($operacion->saldo_final) - $sumDespues;
 
@@ -202,6 +218,33 @@ class ComprobantePdfService
         ];
     }
 
+        /** Datos del traspaso para el comprobante: dirección (origen/destino), tipo (deuda o saldo a favor) y monto. */
+    private function infoTraspaso(Operacion $operacion): ?array
+    {
+        if ($operacion->tipo !== 'traspaso') {
+            return null;
+        }
+
+        // El origen siempre se crea primero: su pareja tiene el número siguiente
+        $esOrigen = Operacion::withoutGlobalScopes()
+            ->where('sucursal_id', $operacion->sucursal_id)
+            ->where('cliente_id', $operacion->traspaso_cliente_id)
+            ->where('traspaso_cliente_id', $operacion->cliente_id)
+            ->where('tipo', 'traspaso')
+            ->where('numero', $operacion->numero + 1)
+            ->exists();
+
+        $efecto = round((float) $operacion->saldo_final - (float) $operacion->saldo_inicial, 2);
+        $aFavor = $esOrigen ? ((float) $operacion->saldo_inicial < 0) : ($efecto < 0);
+        $otro = Cliente::withoutGlobalScopes()->find($operacion->traspaso_cliente_id)?->nombre ?? '—';
+
+        return [
+            'esOrigen' => $esOrigen,
+            'aFavor' => $aFavor,
+            'monto' => abs($efecto),
+            'otro' => $otro,
+        ];
+    }
     /**
      * Texto de a qué se aplicó cada abono de la operación, con el número que ve
      * el cliente (el de la operación en facturas nuevas, el del sistema anterior

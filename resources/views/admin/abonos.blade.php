@@ -981,6 +981,7 @@
             if (h.tipo === 'compra') monto = h.efecto > 0 ? `+ ${colones(h.efecto)}` : colones(0);
             else if (h.tipo === 'devolucion') monto = `− ${colones(Math.abs(h.efecto))}`;
             else if (h.tipo === 'abono') monto = `− ${colones(h.monto)}`;
+            else if (h.tipo === 'traspaso') monto = h.efecto > 0 ? `+ ${colones(h.efecto)}` : `− ${colones(Math.abs(h.efecto))}`;
             else monto = colones(0);
 
             let sub = '';

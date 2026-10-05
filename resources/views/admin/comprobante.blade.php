@@ -252,16 +252,18 @@ table.tabla tfoot { display: table-row-group; }
             </table>
         @endif
 
-         {{-- ===== Traspaso de cuenta ===== --}}
-        @if ($operacion->tipo === 'traspaso')
+              {{-- ===== Traspaso de cuenta ===== --}}
+        @if (!empty($traspaso))
             <div class="seccion">Traspaso de cuenta</div>
             <div class="linea-info">
-                @if ($operacion->facturas->isNotEmpty())
-                    Se le trasladó una deuda de <strong>₡{{ number_format($operacion->facturas->first()->total, 2) }}</strong>
-                    desde el cliente <strong>{{ optional($operacion->traspasoCliente)->nombre ?? '—' }}</strong>.
+                @if ($traspaso['esOrigen'])
+                    Se trasladó {{ $traspaso['aFavor'] ? 'un saldo a favor' : 'una deuda' }} de
+                    <strong>₡{{ number_format($traspaso['monto'], 2) }}</strong>
+                    hacia el cliente <strong>{{ $traspaso['otro'] }}</strong>.
                 @else
-                    Se trasladó una deuda de <strong>₡{{ number_format(abs($operacion->saldo_final - $operacion->saldo_inicial), 2) }}</strong>
-                    hacia el cliente <strong>{{ optional($operacion->traspasoCliente)->nombre ?? '—' }}</strong>.
+                    Se le trasladó {{ $traspaso['aFavor'] ? 'un saldo a favor' : 'una deuda' }} de
+                    <strong>₡{{ number_format($traspaso['monto'], 2) }}</strong>
+                    desde el cliente <strong>{{ $traspaso['otro'] }}</strong>.
                 @endif
             </div>
         @endif
@@ -341,7 +343,7 @@ table.tabla tfoot { display: table-row-group; }
     <table class="resumen">
         <tr>
             <td>Saldo anterior</td>
-            <td class="monto">₡{{ number_format($operacion->saldo_inicial, 2) }}</td>
+                       <td class="monto">{{ $dinero(abs($operacion->saldo_inicial)) }}{{ $operacion->saldo_inicial < 0 ? ' (a favor)' : '' }}</td>
         </tr>
         <tr class="destacada {{ $saldoFavor ? 'favor' : '' }}">
             <td class="ini">Saldo final{{ $saldoFavor ? ' (a favor)' : '' }}</td>

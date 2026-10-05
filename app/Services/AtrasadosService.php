@@ -41,10 +41,10 @@ class AtrasadosService
                 ->groupBy('cliente_id')
                 ->pluck('ultimo', 'cliente_id');
 
-            $primeraFactura = Factura::nuevas()
+                        $primeraFactura = Factura::query()
                 ->whereIn('cliente_id', $ids)
                 ->where('estado', EstadoFactura::Credito->value)
-                ->selectRaw('cliente_id, MIN(created_at) as primera')
+                ->selectRaw('cliente_id, MIN(COALESCE(facturas.fecha, facturas.created_at)) as primera')
                 ->groupBy('cliente_id')
                 ->pluck('primera', 'cliente_id');
 

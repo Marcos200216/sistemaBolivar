@@ -54,26 +54,30 @@ class FacturacionController extends Controller
      * factura), facturas nuevas de crédito con pendiente (para abonar) y
      * facturas recientes con sus líneas y disponible para devolver.
      */
-    public function cuentas(Cliente $cliente)
+        /**
+     * Datos de un cliente + sus cuentas: facturas de crédito abiertas (nuevas y
+     * migradas, para abonar) y facturas recientes con sus líneas (para devolver).
+     */
+    public function cuentas(Cliente $cliente, OperacionService $servicio)
     {
-        $facturasCredito = Factura::nuevas()
+        $facturasCredito = Factura::query()
             ->where('cliente_id', $cliente->id)
             ->where('estado', EstadoFactura::Credito->value)
             ->with('operacion')
-            ->orderBy('created_at')->orderBy('id')
+            ->orderByRaw('COALESCE(facturas.fecha, facturas.created_at)')
+            ->orderBy('facturas.id')
             ->get();
 
         $facturasCreditoPendientes = [];
         $sumaPendientes = 0;
         foreach ($facturasCredito as $f) {
-            $abonado = (float) Abono::where('factura_id', $f->id)->sum('monto_abono');
-            $devuelto = (float) Devolucion::where('factura_id', $f->id)->sum('total');
-            $pendiente = round(max(0, (float) $f->total - $abonado - $devuelto), 2);
-            if ($pendiente > 0) {
+            $pendiente = $servicio->pendienteFactura($f);
+            if ($pendiente >= 0.01) {
                 $facturasCreditoPendientes[] = [
                     'id' => $f->id,
-                    'numero' => $f->operacion?->numero,
-                    'fecha' => optional($f->created_at)->format('d/m/Y'),
+                    'numero' => $f->operacion_id ? $f->operacion?->numero : $f->factura_id_legacy,
+                    'migrada' => $f->operacion_id === null,
+                    'fecha' => $this->fechaFactura($f),
                     'total' => (float) $f->total,
                     'pendiente' => $pendiente,
                 ];
@@ -86,7 +90,7 @@ class FacturacionController extends Controller
         $facturas = Factura::where('cliente_id', $cliente->id)
             ->where('estado', '!=', EstadoFactura::Anulada->value)
             ->with(['lineas', 'operacion'])
-            ->orderByDesc('created_at')
+            ->orderByRaw('COALESCE(facturas.fecha, facturas.created_at) desc')
             ->limit(200)
             ->get();
 
@@ -112,7 +116,7 @@ class FacturacionController extends Controller
                 'nueva' => $f->operacion_id !== null,
                 'numero' => $f->operacion?->numero,
                 'factura_id_legacy' => $f->factura_id_legacy,
-                'fecha' => optional($f->created_at)->format('d/m/Y'),
+                'fecha' => $this->fechaFactura($f),
                 'lineas' => $lineas,
             ];
         })->filter()->values();
@@ -131,6 +135,14 @@ class FacturacionController extends Controller
             'facturas_credito' => $facturasCreditoPendientes,
             'facturas_devolucion' => $facturasDevolucion,
         ]);
+    }
+
+    /** Fecha real de la factura: la migrada trae `fecha`; la nueva, la de su operación. */
+    private function fechaFactura(Factura $f): ?string
+    {
+        $fecha = $f->fecha ?? $f->operacion?->fecha ?? $f->created_at;
+
+        return $fecha ? \Carbon\Carbon::parse($fecha)->format('d/m/Y') : null;
     }
 
     /**

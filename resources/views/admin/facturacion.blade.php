@@ -1506,7 +1506,7 @@
                     const bloqueada = conDevolucion.includes(f.id);
                     opciones.push(`<label class="radio-item ${bloqueada ? 'bloqueada' : ''}">
                 <input type="radio" name="abono-destino" value="${f.id}" ${bloqueada ? 'disabled' : ''} onchange="recalcularAbono()">
-                <span>Factura #${f.numero ?? f.id} (${f.fecha})${bloqueada ? '<br><span class="nota-bloqueo">Ya tiene una devolución en esta visita. Usá el abono automático.</span>' : ''}</span>
+                <span>Factura #${f.numero ?? f.id} (${f.fecha}${f.migrada ? ' · sistema anterior' : ''})${bloqueada ?'<br><span class="nota-bloqueo">Ya tiene una devolución en esta visita. Usá el abono automático.</span>' : ''}</span>
                 <span class="der">${colones(f.pendiente)}</span>
             </label>`);
                 });
@@ -1837,7 +1837,7 @@
             if (abono) {
                 bloques.push(`<div class="tarjeta">
                 <div class="fila-linea">
-                                        <div><div class="desc">Abono</div><div class="sub">${abono._automatico ? 'Automático' : (abono.factura_id === 'venta_actual' ? 'Venta de esta visita' : ('Factura #' + abono.factura_id))}</div></div>
+                                        <div><div class="desc">Abono</div><div class="sub">${abono._automatico ? 'Automático' : (abono.factura_id === 'venta_actual' ? 'Venta de esta visita' : ('Factura #' + (cuentas.facturas_credito.find(x => x.id === abono.factura_id)?.numero ?? abono.factura_id)))}</div></div>
                     <div style="display:flex; align-items:center; gap:10px;"><span class="monto">${colones(abono._monto)}</span>
                     <button type="button" class="btn btn-texto" onclick="quitarAbono()">Quitar</button></div>
                 </div></div>`);

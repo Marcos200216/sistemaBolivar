@@ -334,7 +334,7 @@
             <label class="fila-factura">
                 <input type="checkbox" value="${f.id}" onchange="toggleFactura(${f.id}, this.checked)">
                 <div class="info">
-                    <div>Factura #${f.numero ?? '—'}</div>
+                    <div>Factura #${f.numero ?? '—'}${f.migrada ? ' · sistema anterior' : ''}</div>
                     <div class="sub">${f.fecha ?? ''} · Pendiente: ${formatoColones(f.pendiente)}</div>
                 </div>
             </label>

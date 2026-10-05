@@ -13,8 +13,8 @@ enum EstadoFactura: string
     {
         return match ($letra) {
             'C' => self::Contado,
-            'F' => self::Credito,
-            'R' => self::Saldada,
+            'F' => self::Saldada,
+            'R' => self::Credito,
             'E' => self::Anulada,
         };
     }
