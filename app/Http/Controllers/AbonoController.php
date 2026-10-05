@@ -368,14 +368,26 @@ class AbonoController extends Controller
             return [$tb, $b['orden'], $b['id']] <=> [$ta, $a['orden'], $a['id']];
         });
 
-        $recibos = $this->recibosPorOperacion($ops->keys());
+                $recibos = $this->recibosPorOperacion($ops->keys());
+        $recibosAbono = $this->recibosPor('abono_id', $abonos->whereNull('operacion_id')->pluck('id'));
+        $recibosFactura = $this->recibosPor('factura_id', $facturas->whereNull('operacion_id')->pluck('id'));
 
-$salida = array_map(function ($it) use ($recibos) {
-    $it['fecha'] = $it['fecha_obj'] ? $it['fecha_obj']->format('d/m/Y H:i') : null;
-    $it['recibo'] = $it['operacion_id'] ? ($recibos[$it['operacion_id']] ?? null) : null;
-    unset($it['fecha_obj'], $it['orden']);
-    return $it;
-}, $items);
+        $salida = array_map(function ($it) use ($recibos, $recibosAbono, $recibosFactura) {
+            $it['fecha'] = $it['fecha_obj'] ? $it['fecha_obj']->format('d/m/Y H:i') : null;
+
+            if ($it['operacion_id']) {
+                $it['recibo'] = $recibos[$it['operacion_id']] ?? null;
+            } elseif ($it['tipo'] === 'abono' && $it['abono_id']) {
+                $it['recibo'] = $recibosAbono[$it['abono_id']] ?? null;
+            } elseif ($it['tipo'] === 'compra' && $it['factura_id']) {
+                $it['recibo'] = $recibosFactura[$it['factura_id']] ?? null;
+            } else {
+                $it['recibo'] = null;
+            }
+
+            unset($it['fecha_obj'], $it['orden']);
+            return $it;
+        }, $items);
 
         return response()->json(array_values($salida));
     }
@@ -390,7 +402,8 @@ $salida = array_map(function ($it) use ($recibos) {
             ->keyBy('id');
 
         $recibos = $this->recibosPorOperacion($facturas->pluck('operacion_id'));
-        $lista = $facturas->map(function ($f) use ($ops, $recibos) {
+        $recibosFactura = $this->recibosPor('factura_id', $facturas->whereNull('operacion_id')->pluck('id'));
+        $lista = $facturas->map(function ($f) use ($ops, $recibos, $recibosFactura) {
             $op = $f->operacion_id ? $ops->get($f->operacion_id) : null;
             $fecha = self::aFecha($f->fecha)
                 ?? self::aFecha($op?->fecha)
@@ -429,7 +442,7 @@ $salida = array_map(function ($it) use ($recibos) {
                 'detalle' => $partes ? implode(' · ', $partes) : null,
                 'operacion_id' => $f->operacion_id,
                 'factura_id' => $f->id,
-                'recibo' => $f->operacion_id ? ($recibos[$f->operacion_id] ?? null) : null,
+                'recibo' => $f->operacion_id ? ($recibos[$f->operacion_id] ?? null) : ($recibosFactura[$f->id] ?? null),
             ];
         })->sortBy([['ts', 'desc'], ['id', 'desc']])->values()->map(function ($x) {
             unset($x['ts']);
@@ -485,26 +498,33 @@ $salida = array_map(function ($it) use ($recibos) {
     }
 
     /** Último estado de envío y si hay PDF guardado, por operación. */
-private function recibosPorOperacion($operacionIds): array
-{
-    $ids = collect($operacionIds)->filter()->unique()->values();
-    if ($ids->isEmpty()) {
-        return [];
+    /** Último estado de envío y si hay PDF guardado, por operación. */
+    private function recibosPorOperacion($ids): array
+    {
+        return $this->recibosPor('operacion_id', $ids);
     }
 
-    return ReciboEnvio::whereIn('operacion_id', $ids)
-        ->orderBy('id')
-        ->get()
-        ->groupBy('operacion_id')
-        ->map(function ($g) {
-            $ultimo = $g->last();
+    /** Igual, pero por la columna que se indique (operacion_id, abono_id o factura_id). */
+    private function recibosPor(string $columna, $ids): array
+    {
+        $ids = collect($ids)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
 
-            return [
-                'estado' => $ultimo->estado,
-                'pdf' => $g->last(fn ($r) => $r->ruta_pdf) !== null,
-                'fecha' => optional($ultimo->enviado_at ?? $ultimo->created_at)->format('d/m H:i'),
-            ];
-        })
-        ->all();
-}
+        return ReciboEnvio::whereIn($columna, $ids)
+            ->orderBy('id')
+            ->get()
+            ->groupBy($columna)
+            ->map(function ($g) {
+                $ultimo = $g->last();
+
+                return [
+                    'estado' => $ultimo->estado,
+                    'pdf' => $g->last(fn ($r) => $r->ruta_pdf) !== null,
+                    'fecha' => optional($ultimo->enviado_at ?? $ultimo->created_at)->format('d/m H:i'),
+                ];
+            })
+            ->all();
+    }
 }

@@ -82,6 +82,59 @@ public function reenviarRecibo(Operacion $operacion, ReciboService $recibos)
     return response()->json(['recibo' => $recibo?->estado]);
 }
 
+    /** Abre el PDF guardado del recibo de un abono migrado. */
+    public function verReciboAbono(Abono $abono)
+    {
+        abort_if(!Cliente::find($abono->cliente_id), 404);
+
+        return $this->responderPdfGuardado('abono_id', $abono->id, $this->comprobantes->nombreArchivoAbonoHistorico($abono));
+    }
+
+    /** Reenvío por WhatsApp del recibo de un abono migrado. */
+    public function reenviarReciboAbono(Abono $abono, ReciboService $recibos)
+    {
+        ignore_user_abort(true);
+        set_time_limit(120);
+
+        $cliente = Cliente::find($abono->cliente_id);
+        abort_if(!$cliente, 404);
+        abort_if($abono->operacion_id !== null || (float) $abono->monto_abono <= 0, 422, 'Este abono no se puede reenviar como migrado.');
+
+        $recibo = $recibos->reenviarAbonoHistorico($abono, $cliente, Auth::id());
+
+        return response()->json(['recibo' => $recibo?->estado]);
+    }
+
+    /** Abre el PDF guardado de la factura de una compra migrada. */
+    public function verReciboFactura(Factura $factura)
+    {
+        return $this->responderPdfGuardado('factura_id', $factura->id, $this->comprobantes->nombreArchivoFacturaHistorica($factura));
+    }
+
+    /** Reenvío por WhatsApp de la factura de una compra migrada. */
+    public function reenviarReciboFactura(Factura $factura, ReciboService $recibos)
+    {
+        ignore_user_abort(true);
+        set_time_limit(120);
+
+        abort_if($factura->operacion_id !== null, 422, 'Esta factura tiene comprobante propio.');
+
+        $recibo = $recibos->reenviarFacturaHistorica($factura, Auth::id());
+
+        return response()->json(['recibo' => $recibo?->estado]);
+    }
+
+    private function responderPdfGuardado(string $columna, int $id, string $nombre)
+    {
+        $envio = ReciboEnvio::where($columna, $id)->whereNotNull('ruta_pdf')->latest('id')->first();
+
+        if (!$envio || !Storage::disk('comprobantes')->exists($envio->ruta_pdf)) {
+            abort(404, 'No hay PDF guardado.');
+        }
+
+        return Storage::disk('comprobantes')->response($envio->ruta_pdf, $nombre, ['Content-Type' => 'application/pdf']);
+    }
+
     /**
      * Sirve la foto del comprobante de sinpe de la VENTA de esta operación.
      * El control de acceso es gratis: Operacion tiene BelongsToSucursal, así

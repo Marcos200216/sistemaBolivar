@@ -667,6 +667,15 @@
         const ES_SUPERADMIN = @json(auth()->user()?->es_superadmin ?? false);
         const URL_RECIBO_PDF = @json(route('operaciones.recibo.pdf', ['operacion' => '__ID__']));
         const URL_RECIBO_REENVIAR = @json(route('operaciones.recibo.reenviar', ['operacion' => '__ID__']));
+        const URL_RECIBO_ABONO_PDF = @json(route('abonos.recibo.pdf', ['abono' => '__ID__']));
+        const URL_RECIBO_ABONO_REENVIAR = @json(route('abonos.recibo.reenviar', ['abono' => '__ID__']));
+        const URL_RECIBO_FACTURA_PDF = @json(route('abonos.facturas.recibo.pdf', ['factura' => '__ID__']));
+        const URL_RECIBO_FACTURA_REENVIAR = @json(route('abonos.facturas.recibo.reenviar', ['factura' => '__ID__']));
+        const RECIBO_URLS = {
+            operacion: { pdf: URL_RECIBO_PDF, reenviar: URL_RECIBO_REENVIAR },
+            abono: { pdf: URL_RECIBO_ABONO_PDF, reenviar: URL_RECIBO_ABONO_REENVIAR },
+            factura: { pdf: URL_RECIBO_FACTURA_PDF, reenviar: URL_RECIBO_FACTURA_REENVIAR },
+        };
         const ESTADO_RECIBO = {
             enviado: 'Enviado',
             fallido: 'Falló el envío',
@@ -1017,19 +1026,29 @@
             </div>`;
         }
 
+               // A qué se le cuelga el reenvío: operación (nuevas), abono migrado o factura migrada.
+        // Visitas sin abono y devoluciones migradas no se reenvían.
+        function referenciaRecibo(h) {
+            if (h.operacion_id) return ['operacion', h.operacion_id];
+            if (h.tipo === 'abono' && h.abono_id) return ['abono', h.abono_id];
+            if (h.factura_id) return ['factura', h.factura_id];
+            return null;
+        }
+
         function accionesRecibo(h) {
-            if (!h.operacion_id) return '';
+            const ref = referenciaRecibo(h);
+            if (!ref) return '';
+            const [tipo, id] = ref;
             const r = h.recibo;
             const ver = r && r.pdf ?
-                `<a href="${URL_RECIBO_PDF.replace('__ID__', h.operacion_id)}" target="_blank">Ver PDF enviado</a> · ` :
+                `<a href="${RECIBO_URLS[tipo].pdf.replace('__ID__', id)}" target="_blank">Ver PDF enviado</a> · ` :
                 '';
             const estado = r ?
                 `WhatsApp: ${ESTADO_RECIBO[r.estado] ?? r.estado}${r.fecha ? ' · ' + esc(r.fecha) : ''}` :
                 'WhatsApp: sin envío registrado';
-            return `<div class="recibo-acciones">${ver}<button type="button" class="btn-link" onclick="reenviarRecibo(${h.operacion_id})">Reenviar</button><div class="sub">${estado}</div></div>`;
+            return `<div class="recibo-acciones">${ver}<button type="button" class="btn-link" onclick="reenviarRecibo('${tipo}', ${id})">Reenviar</button><div class="sub">${estado}</div></div>`;
         }
-
-        async function reenviarRecibo(operacionId) {
+         async function reenviarRecibo(tipo, id) {
             const c = await Swal.fire({
                 title: '¿Reenviar el recibo?',
                 text: 'Se le manda de nuevo el mismo PDF por WhatsApp al cliente.',
@@ -1047,7 +1066,7 @@
             });
 
             try {
-                const r = await fetch(URL_RECIBO_REENVIAR.replace('__ID__', operacionId), {
+                    const r = await fetch(RECIBO_URLS[tipo].reenviar.replace('__ID__', id), {
                     method: 'POST',
                     headers: {
                         Accept: 'application/json',

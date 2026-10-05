@@ -15,6 +15,8 @@ class ReciboEnvio extends Model
 
     protected $fillable = [
         'operacion_id',
+        'abono_id',
+        'factura_id',
         'cliente_id',
         'sucursal_id',
         'telefono',

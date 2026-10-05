@@ -55,6 +55,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/abonos/{abono}/recibo-historico', [ComprobanteController::class, 'reciboHistorico'])->name('abonos.recibo-historico');
         Route::get('/abonos/clientes/{cliente}/facturas', [AbonoController::class, 'facturas'])->name('abonos.facturas');
         Route::get('/abonos/facturas/{factura}/historica', [AbonoController::class, 'facturaHistorica'])->name('abonos.factura-historica');
+        Route::get('/abonos/{abono}/recibo-pdf', [ComprobanteController::class, 'verReciboAbono'])->whereNumber('abono')->name('abonos.recibo.pdf');
+        Route::post('/abonos/{abono}/recibo/reenviar', [ComprobanteController::class, 'reenviarReciboAbono'])->whereNumber('abono')->name('abonos.recibo.reenviar');
+        Route::get('/abonos/facturas/{factura}/recibo-pdf', [ComprobanteController::class, 'verReciboFactura'])->whereNumber('factura')->name('abonos.facturas.recibo.pdf');
+        Route::post('/abonos/facturas/{factura}/recibo/reenviar', [ComprobanteController::class, 'reenviarReciboFactura'])->whereNumber('factura')->name('abonos.facturas.recibo.reenviar');
 
         // Traspaso de cuenta (pantalla en construcción)
         Route::get('/traspaso', [TraspasoController::class, 'index'])->name('traspaso.index');

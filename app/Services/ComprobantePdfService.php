@@ -10,6 +10,7 @@ use App\Models\Devolucion;
 use App\Models\Factura;
 use App\Models\Operacion;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Sucursal;
 
 class ComprobantePdfService
 {
@@ -272,5 +273,107 @@ class ComprobantePdfService
         }
 
         return $destinos;
+    }
+
+
+        // ------------------------------------------------------------------
+    // Recibos de lo migrado (operacion_id NULL), para PDF y WhatsApp.
+    // Misma lógica que ComprobanteController::reciboHistorico() y
+    // AbonoController::facturaHistorica(), pero el canal sale de la
+    // sucursal del cliente (no de la sesión).
+    // ------------------------------------------------------------------
+
+    private function canalDeCliente(?Cliente $cliente): string
+    {
+        $canal = ($cliente ? Sucursal::find($cliente->sucursal_id)?->canal : null) ?? 'normal';
+
+        return $canal instanceof \BackedEnum ? $canal->value : (string) $canal;
+    }
+
+    public function datosReciboHistorico(Abono $abono, Cliente $cliente, bool $paraPdf): array
+    {
+        $factura = $abono->factura_id
+            ? Factura::withoutGlobalScopes()->where('cliente_id', $cliente->id)->find($abono->factura_id)
+            : null;
+
+        $numeroFactura = null;
+        if ($factura) {
+            $numeroFactura = $factura->operacion_id
+                ? optional(Operacion::withoutGlobalScopes()->find($factura->operacion_id))->numero
+                : $factura->factura_id_legacy;
+        }
+
+        $monto = round((float) $abono->monto_abono, 2);
+        $despues = round((float) $abono->saldo_final, 2);
+        $antes = round($despues + $monto, 2);
+        $recalculado = abs($antes - round((float) $abono->saldo_inicial, 2)) > 0.005;
+        $sinDesglose = $monto > 0
+            && round((float) $abono->efectivo + (float) $abono->sinpe, 2) < $monto;
+
+        $canal = $this->canalDeCliente($cliente);
+
+        return [
+            'abono' => $abono,
+            'cliente' => $cliente,
+            'factura' => $factura,
+            'numeroFactura' => $numeroFactura,
+            'facturaAnulada' => $factura && (string) $factura->estado === 'anulada',
+            'antes' => $antes,
+            'despues' => $despues,
+            'recalculado' => $recalculado,
+            'sinDesglose' => $sinDesglose,
+            'nombreCanal' => $canal === 'mayorista' ? 'Distribuidora Guana' : 'Distribuidora Azur',
+            'logo' => $canal === 'mayorista' ? 'fondo_guana.png' : 'fondo_azur.png',
+            'paraPdf' => $paraPdf,
+        ];
+    }
+
+    public function datosFacturaHistorica(Factura $factura, bool $paraPdf): array
+    {
+        $factura->loadMissing('lineas', 'cliente');
+
+        $canal = $this->canalDeCliente($factura->cliente);
+
+        $etiqueta = match ((string) $factura->estado) {
+            'contado' => 'Contado',
+            'saldada' => 'Crédito saldado',
+            'anulada' => 'Anulada',
+            default => 'Crédito',
+        };
+
+        $f = $factura->fecha ?? $factura->created_at;
+
+        return [
+            'factura' => $factura,
+            'nombreCanal' => $canal === 'mayorista' ? 'Distribuidora Guana' : 'Distribuidora Azur',
+            'logo' => $canal === 'mayorista' ? 'fondo_guana.png' : 'fondo_azur.png',
+            'etiqueta' => $etiqueta,
+            'fecha' => $f ? \Illuminate\Support\Carbon::parse($f) : null,
+            'paraPdf' => $paraPdf,
+        ];
+    }
+
+    public function generarPdfReciboHistorico(Abono $abono, Cliente $cliente): string
+    {
+        return Pdf::loadView('admin.recibo-historico', $this->datosReciboHistorico($abono, $cliente, true))
+            ->setPaper('letter')
+            ->output();
+    }
+
+    public function generarPdfFacturaHistorica(Factura $factura): string
+    {
+        return Pdf::loadView('admin.factura-historica', $this->datosFacturaHistorica($factura, true))
+            ->setPaper('letter')
+            ->output();
+    }
+
+    public function nombreArchivoAbonoHistorico(Abono $abono): string
+    {
+        return "recibo-abono-historico-{$abono->id}.pdf";
+    }
+
+    public function nombreArchivoFacturaHistorica(Factura $factura): string
+    {
+        return 'factura-' . ($factura->factura_id_legacy ?? $factura->id) . '.pdf';
     }
 }
