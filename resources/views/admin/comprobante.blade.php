@@ -20,14 +20,14 @@
     <title>{{ $titulo }} #{{ $operacion->numero }}</title>
     <style>
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-   @if ($paraPdf)
-@page { margin: 40mm 12mm 22mm 12mm; }
-.cab-fijo { position: fixed; top: -36mm; left: 0; width: 100%; }
-.pie-fijo { position: fixed; bottom: -17mm; left: 0; width: 100%; margin: 0; }
-.pagina:after { content: "Página " counter(page); }
-@else
-@page { margin: 14mm 12mm; }
-@endif
+    @if ($paraPdf)
+    @page { margin: 40mm 12mm 22mm 12mm; }
+    .cab-fijo { position: fixed; top: -36mm; left: 0; width: 100%; }
+    .pie-fijo { position: fixed; bottom: -17mm; left: 0; width: 100%; margin: 0; }
+    .pagina:after { content: "Página " counter(page); }
+    @else
+    @page { margin: 14mm 12mm; }
+    @endif
 
     body {
         margin: 0;
@@ -142,10 +142,11 @@
     .pie { margin-top: 28px; padding-top: 12px; border-top: 1px solid #E3E1DB; text-align: center; font-size: 10.5px; color: #6D7480; }
     .pie .gracias { margin-bottom: 2px; font-size: 12px; font-weight: bold; color: #0A2E6E; }
 
-    /* Tabla "Estado de la cuenta": que continúe bien en otra hoja */
-table.tabla thead { display: table-header-group; }
-table.tabla tfoot { display: table-row-group; }
-.pie { page-break-inside: avoid; }
+    /* Tablas: que continúen bien en otra hoja */
+    table.tabla thead { display: table-header-group; }
+    table.tabla tfoot { display: table-row-group; }
+    .pie { page-break-inside: avoid; }
+
     @media print {
         body { background: #ffffff; padding: 0; }
         .hoja { max-width: none; padding: 0; border-radius: 0; box-shadow: none; }
@@ -188,7 +189,7 @@ table.tabla tfoot { display: table-row-group; }
         $marcaNombre = $nombreCanal ?? ($negocio ?? 'Distribuidora Bolívar');
         $logoSrc = !empty($logo) ? ($paraPdf ? public_path('images/' . $logo) : asset('images/' . $logo)) : null;
     @endphp
-   <div class="banda {{ $paraPdf ? 'cab-fijo' : '' }}">
+    <div class="banda {{ $paraPdf ? 'cab-fijo' : '' }}">
         <table class="cab">
             <tr>
                 <td class="cab-izq">
@@ -231,7 +232,7 @@ table.tabla tfoot { display: table-row-group; }
         </tr>
     </table>
 
-       @if ($operacion->no_abono)
+    @if ($operacion->no_abono)
         <p class="vacio" style="margin-top:18px;">El cliente no realizó movimientos en esta visita.</p>
         @if ($operacion->no_abono_descripcion)
             <div class="linea-info" style="margin-top:10px;">{{ $operacion->no_abono_descripcion }}</div>
@@ -240,6 +241,7 @@ table.tabla tfoot { display: table-row-group; }
 
         {{-- ===== Devoluciones ===== --}}
         @if ($operacion->devoluciones->isNotEmpty())
+            @php $lineasDev = $operacion->devoluciones->flatMap->lineas; @endphp
             <div class="seccion">Devoluciones</div>
             <table class="tabla">
                 <thead>
@@ -256,10 +258,17 @@ table.tabla tfoot { display: table-row-group; }
                         @endforeach
                     @endforeach
                 </tbody>
+                <tfoot>
+                    <tr class="fila-total">
+                        <td>Total</td>
+                        <td class="monto">{{ (int) $lineasDev->sum('cantidad') }}</td>
+                        <td class="monto">₡{{ number_format($lineasDev->sum('precio_total'), 2) }}</td>
+                    </tr>
+                </tfoot>
             </table>
         @endif
 
-              {{-- ===== Traspaso de cuenta ===== --}}
+        {{-- ===== Traspaso de cuenta ===== --}}
         @if (!empty($traspaso))
             <div class="seccion">Traspaso de cuenta</div>
             <div class="linea-info">
@@ -289,18 +298,30 @@ table.tabla tfoot { display: table-row-group; }
                         <th class="monto">Cant.</th>
                         <th class="monto">Precio</th>
                         <th class="monto">Descuento</th>
+                        <th class="monto">Total</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach ($factura->lineas as $linea)
+                        @php $totalLinea = ((float) $linea->precio_unit * (int) $linea->cantidad) - (float) $linea->descuento; @endphp
                         <tr>
                             <td>{{ $linea->descripcion }}</td>
                             <td class="monto">{{ (int) $linea->cantidad }}</td>
                             <td class="monto">₡{{ number_format($linea->precio_unit, 2) }}</td>
                             <td class="monto">₡{{ number_format($linea->descuento, 2) }}</td>
+                            <td class="monto">₡{{ number_format($totalLinea, 2) }}</td>
                         </tr>
                     @endforeach
                 </tbody>
+                <tfoot>
+                    <tr class="fila-total">
+                        <td>Total</td>
+                        <td class="monto">{{ (int) $factura->lineas->sum('cantidad') }}</td>
+                        <td class="monto"></td>
+                        <td class="monto">₡{{ number_format($factura->lineas->sum('descuento'), 2) }}</td>
+                        <td class="monto">₡{{ number_format($factura->lineas->sum(fn ($l) => ((float) $l->precio_unit * (int) $l->cantidad) - (float) $l->descuento), 2) }}</td>
+                    </tr>
+                </tfoot>
             </table>
             @if ($factura->estado !== 'credito')
                 <div class="linea-info">
@@ -342,6 +363,14 @@ table.tabla tfoot { display: table-row-group; }
                         </tr>
                     @endforeach
                 </tbody>
+                <tfoot>
+                    <tr class="fila-total">
+                        <td>Total</td>
+                        <td class="monto">₡{{ number_format($operacion->abonos->sum('efectivo'), 2) }}</td>
+                        <td class="monto">₡{{ number_format($operacion->abonos->sum('sinpe'), 2) }}</td>
+                        <td class="monto">₡{{ number_format($operacion->abonos->sum('monto_abono'), 2) }}</td>
+                    </tr>
+                </tfoot>
             </table>
         @endif
     @endif
@@ -350,7 +379,7 @@ table.tabla tfoot { display: table-row-group; }
     <table class="resumen">
         <tr>
             <td>Saldo anterior</td>
-                       <td class="monto">{{ $dinero(abs($operacion->saldo_inicial)) }}{{ $operacion->saldo_inicial < 0 ? ' (a favor)' : '' }}</td>
+            <td class="monto">{{ $dinero(abs($operacion->saldo_inicial)) }}{{ $operacion->saldo_inicial < 0 ? ' (a favor)' : '' }}</td>
         </tr>
         <tr class="destacada {{ $saldoFavor ? 'favor' : '' }}">
             <td class="ini">Saldo final{{ $saldoFavor ? ' (a favor)' : '' }}</td>
@@ -358,7 +387,7 @@ table.tabla tfoot { display: table-row-group; }
         </tr>
     </table>
 
-      {{-- ===== Estado de la cuenta ===== --}}
+    {{-- ===== Estado de la cuenta ===== --}}
     @if (!empty($cuentas['filas']))
         <div class="seccion">Estado de la cuenta</div>
         <table class="tabla">
@@ -399,10 +428,10 @@ table.tabla tfoot { display: table-row-group; }
     @endif
 
     <div class="pie {{ $paraPdf ? 'pie-fijo' : '' }}">
-    <div class="gracias">Gracias por su preferencia</div>
-    <div>{{ $marcaNombre }}</div>
-    @if ($paraPdf)<div class="tenue pagina"></div>@endif
-</div>
+        <div class="gracias">Gracias por su preferencia</div>
+        <div>{{ $marcaNombre }}</div>
+        @if ($paraPdf)<div class="tenue pagina"></div>@endif
+    </div>
 
 </div>
 </body>
