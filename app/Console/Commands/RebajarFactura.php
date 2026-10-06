@@ -54,12 +54,13 @@ class RebajarFactura extends Command
             return self::FAILURE;
         }
 
-        $pendiente = $this->pendiente($factura);
-        if (abs($pendiente - $monto) > 0.005) {
+                $pendiente = $this->pendiente($factura);
+        if ($monto > $pendiente + 0.005) {
             $this->error('El pendiente actual de esa factura es ₡' . number_format($pendiente, 2)
-                . ', no ₡' . number_format($monto, 2) . '. No se hace nada.');
+                . ', menos que los ₡' . number_format($monto, 2) . ' a rebajar. No se hace nada.');
             return self::FAILURE;
         }
+        $saldaFactura = abs($pendiente - $monto) < 0.005;
 
         $saldo = round((float) $cliente->saldo_actual, 2);
         if ($saldo < $monto - 0.005) {
@@ -86,7 +87,7 @@ class RebajarFactura extends Command
             ['Factura', $this->option('factura') . ' (id ' . $factura->id . ')'],
             ['Monto a rebajar', number_format($monto, 2)],
             ['Saldo del cliente', number_format($saldo, 2) . ' → ' . number_format($saldoFinal, 2)],
-            ['Estado de la factura', $factura->estado . ' → saldada'],
+                        ['Pendiente de la factura', number_format($pendiente, 2) . ' → ' . number_format($pendiente - $monto, 2) . ($saldaFactura ? ' (queda saldada)' : ' (sigue abierta)')],
             ['Operación a crear', 'N° ' . $numero . ', tipo rebaja'],
             ['Autor', $usuario->name . ' (id ' . $usuario->id . ')'],
             ['Motivo', $motivo],
@@ -108,7 +109,7 @@ class RebajarFactura extends Command
                 if (round((float) $c->saldo_actual, 2) !== $saldo) {
                     throw new \RuntimeException('El saldo del cliente cambió mientras tanto.');
                 }
-                if ($f->estado !== EstadoFactura::Credito->value || abs($this->pendiente($f) - $monto) > 0.005) {
+                if ($f->estado !== EstadoFactura::Credito->value || $this->pendiente($f) < $monto - 0.005) {
                     throw new \RuntimeException('La factura cambió mientras tanto.');
                 }
 
@@ -174,7 +175,7 @@ class RebajarFactura extends Command
             ['Saldo del cliente', number_format((float) $cli->saldo_actual, 2), ''],
             ['Suma pendiente de sus facturas abiertas', number_format($suma, 2),
                 abs((float) $cli->saldo_actual - $suma) < 0.005 ? 'OK' : 'REVISAR'],
-            ['Estado de la factura rebajada', $fac->estado, $fac->estado === EstadoFactura::Saldada->value ? 'OK' : 'REVISAR'],
+                        ['Pendiente de la factura rebajada', number_format($this->pendiente($fac), 2) . ' (' . $fac->estado . ')', ''],
             ['Operación', 'N° ' . $numero . ' (id ' . $opId . ')', ''],
         ]);
 

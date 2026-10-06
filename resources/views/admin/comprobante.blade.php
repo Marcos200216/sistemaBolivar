@@ -20,7 +20,14 @@
     <title>{{ $titulo }} #{{ $operacion->numero }}</title>
     <style>
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    @page { margin: 14mm 12mm; }
+   @if ($paraPdf)
+@page { margin: 40mm 12mm 22mm 12mm; }
+.cab-fijo { position: fixed; top: -36mm; left: 0; width: 100%; }
+.pie-fijo { position: fixed; bottom: -17mm; left: 0; width: 100%; margin: 0; }
+.pagina:after { content: "Página " counter(page); }
+@else
+@page { margin: 14mm 12mm; }
+@endif
 
     body {
         margin: 0;
@@ -181,7 +188,7 @@ table.tabla tfoot { display: table-row-group; }
         $marcaNombre = $nombreCanal ?? ($negocio ?? 'Distribuidora Bolívar');
         $logoSrc = !empty($logo) ? ($paraPdf ? public_path('images/' . $logo) : asset('images/' . $logo)) : null;
     @endphp
-    <div class="banda">
+   <div class="banda {{ $paraPdf ? 'cab-fijo' : '' }}">
         <table class="cab">
             <tr>
                 <td class="cab-izq">
@@ -391,10 +398,11 @@ table.tabla tfoot { display: table-row-group; }
         </table>
     @endif
 
-    <div class="pie">
-        <div class="gracias">Gracias por su preferencia</div>
-        <div>{{ $marcaNombre }}</div>
-    </div>
+    <div class="pie {{ $paraPdf ? 'pie-fijo' : '' }}">
+    <div class="gracias">Gracias por su preferencia</div>
+    <div>{{ $marcaNombre }}</div>
+    @if ($paraPdf)<div class="tenue pagina"></div>@endif
+</div>
 
 </div>
 </body>
