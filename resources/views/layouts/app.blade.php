@@ -116,21 +116,24 @@
         }
 
         .sidebar nav {
-    position: relative;
-    z-index: 1;
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    overflow-y: auto;
-    scrollbar-width: none;        /* Firefox */
-    -ms-overflow-style: none;     /* Edge viejo */
-}
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            overflow-y: auto;
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* Edge viejo */
+        }
 
-.sidebar nav::-webkit-scrollbar {
-    display: none;                /* Chrome, Edge, Safari */
-}
+        .sidebar nav::-webkit-scrollbar {
+            display: none;
+            /* Chrome, Edge, Safari */
+        }
 
         .sidebar nav a {
             display: flex;
@@ -193,7 +196,7 @@
             color: #fff;
         }
 
-     
+
 
         /* ===== Badge de contador (Apartados) ===== */
         .badge-contador {
@@ -528,29 +531,29 @@
 
 
         /* ===== Desktop: layout fijo, solo scrollea el contenido ===== */
-@media (min-width: 761px) {
-    body {
-        height: 100dvh;
-        overflow: hidden;
-    }
+        @media (min-width: 761px) {
+            body {
+                height: 100dvh;
+                overflow: hidden;
+            }
 
-    .contenido {
-        height: 100dvh;
-        min-height: 0;
-        overflow: hidden;
-    }
+            .contenido {
+                height: 100dvh;
+                min-height: 0;
+                overflow: hidden;
+            }
 
-    .topbar {
-        flex-shrink: 0;
-    }
+            .topbar {
+                flex-shrink: 0;
+            }
 
-    .main {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-    }
-}
+            .main {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+            }
+        }
 
         @media (max-width: 420px) {
 
@@ -582,187 +585,201 @@
         }
 
         /* ===== Paginación compartida ===== */
-.paginacion {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid var(--borde);
-}
+        .paginacion {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--borde);
+        }
 
-.paginacion-info {
-    font-size: 13px;
-    color: var(--texto-tenue);
-    white-space: nowrap;
-}
+        .paginacion-info {
+            font-size: 13px;
+            color: var(--texto-tenue);
+            white-space: nowrap;
+        }
 
-.paginacion-info strong {
-    color: var(--texto);
-    font-weight: 600;
-}
+        .paginacion-info strong {
+            color: var(--texto);
+            font-weight: 600;
+        }
 
-.paginacion-controles {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
+        .paginacion-controles {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-.pag-nav {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 36px;
-    padding: 0 14px;
-    border-radius: 9px;
-    border: 1px solid var(--borde);
-    background: #fff;
-    color: var(--texto);
-    font-size: 13px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    transition: background .15s, border-color .15s;
-}
+        .pag-nav {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 36px;
+            padding: 0 14px;
+            border-radius: 9px;
+            border: 1px solid var(--borde);
+            background: #fff;
+            color: var(--texto);
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background .15s, border-color .15s;
+        }
 
-.pag-nav svg {
-    width: 14px;
-    height: 14px;
-}
+        .pag-nav svg {
+            width: 14px;
+            height: 14px;
+        }
 
-.pag-nav:hover:not(:disabled) {
-    background: #F5F7FA;
-    border-color: var(--borde-hover);
-}
+        .pag-nav:hover:not(:disabled) {
+            background: #F5F7FA;
+            border-color: var(--borde-hover);
+        }
 
-.pag-nav:disabled {
-    color: var(--texto-400);
-    cursor: default;
-    background: #fff;
-}
+        .pag-nav:disabled {
+            color: var(--texto-400);
+            cursor: default;
+            background: #fff;
+        }
 
-.pag-numeros {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
+        .pag-numeros {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
 
-.pag-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 34px;
-    height: 34px;
-    padding: 0 4px;
-    border-radius: 8px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    color: var(--texto-tenue);
-    font-size: 13px;
-    font-weight: 500;
-    font-family: inherit;
-}
+        .pag-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 34px;
+            padding: 0 4px;
+            border-radius: 8px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: var(--texto-tenue);
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+        }
 
-.pag-num:hover {
-    background: #EAF1FD;
-    color: var(--texto);
-}
+        .pag-num:hover {
+            background: #EAF1FD;
+            color: var(--texto);
+        }
 
-.pag-num.pag-activo {
-    background: var(--azul-medio);
-    color: #fff;
-    font-weight: 600;
-}
+        .pag-num.pag-activo {
+            background: var(--azul-medio);
+            color: #fff;
+            font-weight: 600;
+        }
 
-.pag-puntos {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 34px;
-    color: var(--texto-400);
-    font-size: 13px;
-}
+        .pag-puntos {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 34px;
+            color: var(--texto-400);
+            font-size: 13px;
+        }
 
-.pag-actual-movil {
-    display: none;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--texto);
-}
+        .pag-actual-movil {
+            display: none;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--texto);
+        }
 
-@media (max-width: 640px) {
-    .paginacion-info {
-        display: none;
-    }
+        @media (max-width: 640px) {
+            .paginacion-info {
+                display: none;
+            }
 
-    .paginacion-controles {
-        width: 100%;
-        justify-content: space-between;
-    }
+            .paginacion-controles {
+                width: 100%;
+                justify-content: space-between;
+            }
 
-    .pag-numeros {
-        display: none;
-    }
+            .pag-numeros {
+                display: none;
+            }
 
-    .pag-actual-movil {
-        display: inline-flex;
-    }
+            .pag-actual-movil {
+                display: inline-flex;
+            }
 
-    .pag-nav {
-        flex: 1;
-        justify-content: center;
-    }
-}
-/* ===== Tabla con scroll interno (desktop) ===== */
-.tabla-scroll {
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 60vh;
-    border-radius: 10px;
-    border: 1px solid var(--borde);
-    box-shadow: var(--sombra-card);
-}
+            .pag-nav {
+                flex: 1;
+                justify-content: center;
+            }
+        }
 
-.tabla-scroll table {
-    border-radius: 0;
-}
+        /* ===== Tabla con scroll interno (desktop) ===== */
+        .tabla-scroll {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 60vh;
+            border-radius: 10px;
+            border: 1px solid var(--borde);
+            box-shadow: var(--sombra-card);
+        }
 
-.tabla-scroll thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
+        .tabla-scroll table {
+            border-radius: 0;
+        }
 
-@media (min-width: 761px) {
-    .sidebar {
-        padding: clamp(16px, 2.5vh, 28px) 0;
-    }
+        .tabla-scroll thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
 
-    .sidebar .marca {
-        gap: clamp(6px, 1vh, 12px);
-        padding-bottom: clamp(12px, 2vh, 22px);
-        margin-bottom: clamp(8px, 1.5vh, 18px);
-    }
+        @media (min-width: 761px) {
+            .sidebar {
+                padding: clamp(16px, 2.5vh, 28px) 0;
+            }
 
-    .sidebar .marca .logo {
-        width: clamp(64px, 9vh, 96px);
-        height: clamp(64px, 9vh, 96px);
-    }
+            .sidebar .marca {
+                gap: clamp(6px, 1vh, 12px);
+                padding-bottom: clamp(12px, 2vh, 22px);
+                margin-bottom: clamp(8px, 1.5vh, 18px);
+            }
 
-    .sidebar nav a {
-        padding: clamp(9px, 1.55vh, 16px) 24px;
-        font-size: clamp(14px, 1.7vh, 15.5px);
-    }
+            .sidebar .marca .logo {
+                width: clamp(64px, 9vh, 96px);
+                height: clamp(64px, 9vh, 96px);
+            }
 
-    .sidebar nav a svg {
-        width: clamp(17px, 2vh, 20px);
-        height: clamp(17px, 2vh, 20px);
-    }
-}
+            .sidebar nav a {
+                padding: clamp(9px, 1.55vh, 16px) 24px;
+                font-size: clamp(14px, 1.7vh, 15.5px);
+            }
+
+            .sidebar nav a svg {
+                width: clamp(17px, 2vh, 20px);
+                height: clamp(17px, 2vh, 20px);
+            }
+        }
+
+        /* Escritorio: se ve como a 90% de zoom. Cambiá --escala (.85, .8...) para ajustar. */
+        @media (min-width: 761px) {
+            :root {
+                --escala: .9;
+            }
+
+            .sidebar,
+            .topbar,
+            .main {
+                zoom: var(--escala);
+            }
+        }
     </style>
     @stack('estilos')
 </head>
@@ -842,14 +859,14 @@
                 Traspaso de cuenta
             </a>
             @if (auth()->user()->es_superadmin)
-            <a href="{{ route('compras.index') }}" class="{{ request()->routeIs('compras.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <path d="M6 8h12l-1 12H7L6 8Z" />
-                    <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-                </svg>
-                Compras
-            </a>
+                <a href="{{ route('compras.index') }}" class="{{ request()->routeIs('compras.*') ? 'activo' : '' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 8h12l-1 12H7L6 8Z" />
+                        <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+                    </svg>
+                    Compras
+                </a>
             @endif
             <a href="{{ route('gastos.index') }}" class="{{ request()->routeIs('gastos.*') ? 'activo' : '' }}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
@@ -861,8 +878,8 @@
             </a>
             <a href="{{ route('inventario.index') }}"
                 class="{{ request()->routeIs('inventario.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 8 12 3 3 8l9 5 9-5Z" />
                     <path d="M3 8v8l9 5 9-5V8" />
                     <path d="M12 13v8" />
@@ -879,13 +896,14 @@
                 Rutas
             </a>
             @if (auth()->user()->es_superadmin)
-            <a href="{{ route('reportes.index') }}" class="{{ request()->routeIs('reportes.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 20V10M10 20V4M16 20v-7M4 20h16" />
-                </svg>
-                Reportes
-            </a>
+                <a href="{{ route('reportes.index') }}"
+                    class="{{ request()->routeIs('reportes.*') ? 'activo' : '' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 20V10M10 20V4M16 20v-7M4 20h16" />
+                    </svg>
+                    Reportes
+                </a>
             @endif
             @if ($esGuana)
                 <a href="{{ route('generar-pdf.index') }}"
@@ -899,7 +917,7 @@
                     Generar PDF
                 </a>
             @endif
-                       @if (auth()->user()->es_superadmin)
+            @if (auth()->user()->es_superadmin)
                 <a href="{{ route('administradores.index') }}"
                     class="{{ request()->routeIs('administradores.*') ? 'activo' : '' }}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -913,7 +931,7 @@
 
         </nav>
 
-    
+
 
         <div class="cerrar-sesion">
             <form method="POST" action="{{ route('logout') }}">
@@ -941,8 +959,8 @@
             </button>
             <span class="sucursal">{{ $sucursalActual->nombre ?? 'Sin sucursal' }}</span>
 
-            <a href="{{ route('sucursales.selector') }}" class="btn-cambiar-sucursal"
-                title="Cambiar de sucursal" aria-label="Cambiar de sucursal">
+            <a href="{{ route('sucursales.selector') }}" class="btn-cambiar-sucursal" title="Cambiar de sucursal"
+                aria-label="Cambiar de sucursal">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 9l1.5-5h15L21 9" />
@@ -977,8 +995,8 @@
     <nav class="barra-inferior">
         <div class="barra-scroll">
             <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="3" width="8" height="8" rx="1.5" />
                     <rect x="13" y="3" width="8" height="8" rx="1.5" />
                     <rect x="3" y="13" width="8" height="8" rx="1.5" />
@@ -987,16 +1005,16 @@
                 Inicio
             </a>
             <a href="{{ route('clientes.index') }}" class="{{ request()->routeIs('clientes.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="8" r="3.5" />
                     <path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6" />
                 </svg>
                 Clientes
             </a>
             <a href="{{ route('abonos.index') }}" class="{{ request()->routeIs('abonos.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="9" />
                     <path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3H15" />
                 </svg>
@@ -1004,17 +1022,18 @@
             </a>
             <a href="{{ route('facturacion.index') }}"
                 class="{{ request()->routeIs('facturacion.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <path d="M7 3h8l4 4v14H7Z" />
                     <path d="M15 3v4h4" />
                     <path d="M9 13h6M9 17h6M9 9h2" />
                 </svg>
                 Facturación
             </a>
-            <a href="{{ route('apartados.index') }}" class="{{ request()->routeIs('apartados.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+            <a href="{{ route('apartados.index') }}"
+                class="{{ request()->routeIs('apartados.*') ? 'activo' : '' }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 8 12 3 3 8l9 5 9-5Z" />
                     <path d="M3 8v8l9 5 9-5V8" />
                     <path d="M12 13v8" />
@@ -1023,8 +1042,8 @@
                 <span class="badge-contador" id="badge-apartados-movil"></span>
             </a>
             <a href="{{ route('rutas.index') }}" class="{{ request()->routeIs('rutas.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="6" cy="19" r="2" />
                     <circle cx="18" cy="5" r="2" />
                     <path d="M8 19h7a4 4 0 0 0 0-8H9a4 4 0 0 1 0-8h7" />
@@ -1032,8 +1051,8 @@
                 Rutas
             </a>
             <a href="{{ route('traspaso.index') }}" class="{{ request()->routeIs('traspaso.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <path d="M4 8h14" />
                     <path d="m14 4 4 4-4 4" />
                     <path d="M20 16H6" />
@@ -1042,18 +1061,19 @@
                 Traspaso
             </a>
             @if (auth()->user()->es_superadmin)
-            <a href="{{ route('compras.index') }}" class="{{ request()->routeIs('compras.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <path d="M6 8h12l-1 12H7L6 8Z" />
-                    <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-                </svg>
-                Compras
-            </a>
+                <a href="{{ route('compras.index') }}"
+                    class="{{ request()->routeIs('compras.*') ? 'activo' : '' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 8h12l-1 12H7L6 8Z" />
+                        <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+                    </svg>
+                    Compras
+                </a>
             @endif
             <a href="{{ route('gastos.index') }}" class="{{ request()->routeIs('gastos.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <path d="M20 12V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-3" />
                     <path d="M20 12h-4a2 2 0 0 0 0 4h4v-4Z" />
                 </svg>
@@ -1061,8 +1081,8 @@
             </a>
             <a href="{{ route('inventario.index') }}"
                 class="{{ request()->routeIs('inventario.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 8 12 3 3 8l9 5 9-5Z" />
                     <path d="M3 8v8l9 5 9-5V8" />
                     <path d="M12 13v8" />
@@ -1070,13 +1090,14 @@
                 Inventario
             </a>
             @if (auth()->user()->es_superadmin)
-            <a href="{{ route('reportes.index') }}" class="{{ request()->routeIs('reportes.*') ? 'activo' : '' }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <path d="M4 20V10M10 20V4M16 20v-7M4 20h16" />
-                </svg>
-                Reportes
-            </a>
+                <a href="{{ route('reportes.index') }}"
+                    class="{{ request()->routeIs('reportes.*') ? 'activo' : '' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 20V10M10 20V4M16 20v-7M4 20h16" />
+                    </svg>
+                    Reportes
+                </a>
             @endif
             @if ($esGuana)
                 <a href="{{ route('generar-pdf.index') }}"
@@ -1114,7 +1135,7 @@
         }
 
         // Barra inferior: centra el ítem activo y muestra/oculta los degradados de los bordes
-        (function () {
+        (function() {
             const barra = document.querySelector('.barra-inferior');
             if (!barra) return;
             const scroller = barra.querySelector('.barra-scroll');
@@ -1133,62 +1154,77 @@
 
             centrarActivo();
             actualizar();
-            scroller.addEventListener('scroll', actualizar, { passive: true });
-            window.addEventListener('resize', () => { centrarActivo(); actualizar(); });
+            scroller.addEventListener('scroll', actualizar, {
+                passive: true
+            });
+            window.addEventListener('resize', () => {
+                centrarActivo();
+                actualizar();
+            });
         })();
 
         // Contador de Apartados: alimenta el numerito de la sidebar y de la barra inferior
         // Contador de Apartados: alimenta el numerito de la sidebar y de la barra inferior.
-// Expuesto como función global para que otras pantallas (como Apartados) puedan
-// pedirle que se actualice al toque después de guardar/eliminar, sin esperar
-// el refresco automático.
-async function actualizarBadgeApartados() {
-    try {
-        const r = await fetch('{{ route('apartados.contador') }}', { headers: { Accept: 'application/json' } });
-        if (!r.ok) return;
-        const { total } = await r.json();
-        document.querySelectorAll('#badge-apartados, #badge-apartados-movil').forEach(el => {
-            el.textContent = total;
-            el.style.display = total > 0 ? 'inline-flex' : 'none';
-        });
-    } catch (e) {}
-}
+        // Expuesto como función global para que otras pantallas (como Apartados) puedan
+        // pedirle que se actualice al toque después de guardar/eliminar, sin esperar
+        // el refresco automático.
+        async function actualizarBadgeApartados() {
+            try {
+                const r = await fetch('{{ route('apartados.contador') }}', {
+                    headers: {
+                        Accept: 'application/json'
+                    }
+                });
+                if (!r.ok) return;
+                const {
+                    total
+                } = await r.json();
+                document.querySelectorAll('#badge-apartados, #badge-apartados-movil').forEach(el => {
+                    el.textContent = total;
+                    el.style.display = total > 0 ? 'inline-flex' : 'none';
+                });
+            } catch (e) {}
+        }
 
-actualizarBadgeApartados();
-setInterval(actualizarBadgeApartados, 20000); // refresco automático cada 20s
+        actualizarBadgeApartados();
+        setInterval(actualizarBadgeApartados, 20000); // refresco automático cada 20s
 
-// ===== Paginador compartido =====
-// Recibe el JSON de paginate() de Laravel tal cual.
-//   id:        id del <div class="paginacion"> de la pantalla
-//   resp:      respuesta del fetch (current_page, last_page, total, from, to)
-//   etiqueta:  texto plural para "Mostrando 1–15 de 40 <etiqueta>"
-//   alCambiar: función que recibe el número de página a cargar
-function pintarPaginador(id, resp, etiqueta, alCambiar) {
-    const el = document.getElementById(id);
-    if (!el) return;
+        // ===== Paginador compartido =====
+        // Recibe el JSON de paginate() de Laravel tal cual.
+        //   id:        id del <div class="paginacion"> de la pantalla
+        //   resp:      respuesta del fetch (current_page, last_page, total, from, to)
+        //   etiqueta:  texto plural para "Mostrando 1–15 de 40 <etiqueta>"
+        //   alCambiar: función que recibe el número de página a cargar
+        function pintarPaginador(id, resp, etiqueta, alCambiar) {
+            const el = document.getElementById(id);
+            if (!el) return;
 
-    const actual = resp.current_page, ultima = resp.last_page, total = resp.total;
-    if (!total || ultima <= 1) {
-        el.style.display = 'none';
-        el.innerHTML = '';
-        return;
-    }
-    el.style.display = 'flex';
+            const actual = resp.current_page,
+                ultima = resp.last_page,
+                total = resp.total;
+            if (!total || ultima <= 1) {
+                el.style.display = 'none';
+                el.innerHTML = '';
+                return;
+            }
+            el.style.display = 'flex';
 
-    const visibles = new Set([1, ultima, actual, actual - 1, actual + 1]);
-    const numeros = [];
-    let anterior = 0;
-    for (let p = 1; p <= ultima; p++) {
-        if (!visibles.has(p)) continue;
-        if (anterior && p - anterior > 1) numeros.push('...');
-        numeros.push(p);
-        anterior = p;
-    }
+            const visibles = new Set([1, ultima, actual, actual - 1, actual + 1]);
+            const numeros = [];
+            let anterior = 0;
+            for (let p = 1; p <= ultima; p++) {
+                if (!visibles.has(p)) continue;
+                if (anterior && p - anterior > 1) numeros.push('...');
+                numeros.push(p);
+                anterior = p;
+            }
 
-    const flechaIzq = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
-    const flechaDer = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+            const flechaIzq =
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
+            const flechaDer =
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
 
-    el.innerHTML = `
+            el.innerHTML = `
         <div class="paginacion-info">Mostrando <strong>${resp.from ?? 0}–${resp.to ?? 0}</strong> de <strong>${total}</strong> ${etiqueta}</div>
         <div class="paginacion-controles">
             <button type="button" class="pag-nav" ${actual === 1 ? 'disabled' : ''} data-pagina="${actual - 1}">${flechaIzq} Anterior</button>
@@ -1202,20 +1238,22 @@ function pintarPaginador(id, resp, etiqueta, alCambiar) {
             <button type="button" class="pag-nav" ${actual === ultima ? 'disabled' : ''} data-pagina="${actual + 1}">Siguiente ${flechaDer}</button>
         </div>`;
 
-    el.querySelectorAll('[data-pagina]').forEach(b =>
-        b.addEventListener('click', () => alCambiar(Number(b.dataset.pagina)))
-    );
-}
+            el.querySelectorAll('[data-pagina]').forEach(b =>
+                b.addEventListener('click', () => alCambiar(Number(b.dataset.pagina)))
+            );
+        }
 
-// Sube al tope: en desktop scrollea .main, en móvil scrollea la ventana
-function irArribaPagina() {
-    const opts = { top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' };
-    document.querySelectorAll('.tabla-scroll').forEach(t => t.scrollTo(opts));
-    const main = document.querySelector('.main');
-    if (main) main.scrollTo(opts);
-    window.scrollTo(opts);
-}
-
+        // Sube al tope: en desktop scrollea .main, en móvil scrollea la ventana
+        function irArribaPagina() {
+            const opts = {
+                top: 0,
+                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+            };
+            document.querySelectorAll('.tabla-scroll').forEach(t => t.scrollTo(opts));
+            const main = document.querySelector('.main');
+            if (main) main.scrollTo(opts);
+            window.scrollTo(opts);
+        }
     </script>
 
     @stack('scripts')
