@@ -691,7 +691,7 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
             $brutoDevuelto = $precio * $cant;
 
             // Solo las ventas nuevas de Azur devuelven producto al stock
-            $regresa = $mueveStock && $nueva && !empty($li['regresa_stock']);
+                        $regresa = $mueveStock && $nueva && $linea->producto_id !== null && !empty($li['regresa_stock']);
             if ($regresa && !$linea->producto_variante_id) {
                 throw new OperacionException("«{$linea->descripcion}» no tiene variante para regresar al stock.");
             }
@@ -752,6 +752,14 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
         $desc = 0;
 
         foreach ($lineasIn as $li) {
+                        // Línea libre: producto que no existe en el catálogo. Solo texto, sin stock ni catálogo.
+            if (!empty($li['libre'])) {
+                [$lineaLibre, $brutoLibre, $descLibre] = $this->lineaLibre($li);
+                $lineas[] = $lineaLibre;
+                $bruto += $brutoLibre;
+                $desc += $descLibre;
+                continue;
+            }
             $producto = Producto::with('subcategoria.categoria')->find($li['producto_id'] ?? null);
             if (!$producto || !$producto->activo) {
                 throw new OperacionException('Un producto de la venta ya no está disponible.');
@@ -1028,7 +1036,55 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
     // ------------------------------------------------------------------
 
 
+    /** @return array{0: array, 1: int, 2: int} [línea, bruto, descuento] en céntimos */
+    private function lineaLibre(array $li): array
+    {
+        $nombre = trim((string) ($li['nombre_libre'] ?? ''));
+        if ($nombre === '') {
+            throw new OperacionException('Escribí el nombre del producto libre.');
+        }
+        if (mb_strlen($nombre) > 255) {
+            throw new OperacionException('El nombre del producto libre no puede pasar de 255 caracteres.');
+        }
 
+        $cant = (float) ($li['cantidad'] ?? 0);
+        if ($cant < 1 || floor($cant) != $cant) {
+            throw new OperacionException("La cantidad de «{$nombre}» debe ser un entero mayor a 0.");
+        }
+        $cant = (int) $cant;
+
+        $precio = $this->c($li['precio_unit'] ?? 0);
+        if ($precio <= 0) {
+            throw new OperacionException("«{$nombre}» necesita un precio mayor a 0.");
+        }
+
+        $brutoLinea = $precio * $cant;
+        $tipoDesc = $li['descuento_tipo'] ?? 'monto';
+        $valorDesc = (float) ($li['descuento'] ?? 0);
+        if ($valorDesc < 0) {
+            throw new OperacionException("El descuento de «{$nombre}» no puede ser negativo.");
+        }
+        if ($tipoDesc === 'porcentaje') {
+            if ($valorDesc > 100) {
+                throw new OperacionException("El descuento de «{$nombre}» no puede ser mayor a 100%.");
+            }
+            $dLinea = (int) round($brutoLinea * $valorDesc / 100);
+        } else {
+            $dLinea = $this->c($valorDesc);
+        }
+        if ($dLinea > $brutoLinea) {
+            throw new OperacionException("El descuento de «{$nombre}» no puede ser mayor al valor de la línea.");
+        }
+
+        return [[
+            'producto_id' => null,
+            'producto_variante_id' => null,
+            'descripcion' => $nombre,
+            'precio' => $precio,
+            'cantidad' => $cant,
+            'descuento' => $dLinea,
+        ], $brutoLinea, $dLinea];
+    }
 
 private function facturasCreditoAbiertas(int $clienteId)
 {

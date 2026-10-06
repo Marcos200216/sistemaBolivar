@@ -463,9 +463,10 @@ class ReporteController extends Controller
             case 'inventario':
                 $l = $this->t(FacturaLinea::class);
                 $f = $this->t(Factura::class);
-                $base = DB::table($l)
+                                $base = DB::table($l)
                     ->join($f, "$f.id", '=', "$l.factura_id")
                     ->whereNotNull("$f.operacion_id")
+                    ->whereNotNull("$l.producto_id") // excluye líneas libres (fuera de catálogo)
                     ->where("$f.estado", '!=', 'anulada');
                 $this->porSucursal($base, $sel, "$f.sucursal_id");
                 $this->porFecha($base, "$f.created_at", $d, $h);

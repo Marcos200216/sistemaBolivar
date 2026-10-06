@@ -651,13 +651,15 @@
     <h3>Nota del apartado</h3>
     <div id="nota-apartado-texto" style="font-size:14px; overflow-wrap:anywhere;"></div>
 </div>
-            <div class="tarjeta">
+                       <div class="tarjeta">
                 <h3>Producto</h3>
                 <div class="buscador-caja">
                     <input type="text" id="buscar-producto" placeholder="Buscar por nombre, código o subcategoría"
                         autocomplete="off">
                     <div class="sugerencias" id="sug-producto"></div>
                 </div>
+
+                <button type="button" class="btn btn-texto" style="margin-top:8px;" onclick="abrirModalLibre()">¿No existe el producto? Agregar línea libre</button>
 
                 <div id="producto-elegido" style="display:none; margin-top:14px;">
                     <p style="margin:0 0 10px; font-size:14px;"><strong id="pe-nombre"></strong> <span id="pe-stock"
@@ -1241,6 +1243,67 @@
             avanzarColaApartado(); // ← esta línea nueva al final
         }
 
+
+                // Línea libre: producto fuera de catálogo, solo nombre y precio (más cantidad y descuento).
+        // Va solo al comprobante; no se guarda en productos ni mueve stock.
+        async function abrirModalLibre() {
+            const estiloInput = 'margin:4px 0 12px; width:100%; box-sizing:border-box; font-size:16px;';
+            const { value: d } = await Swal.fire({
+                title: 'Producto fuera de catálogo',
+                html: `
+                <div style="text-align:left; font-size:13px; font-weight:600;">
+                    <label>Nombre</label>
+                    <input id="libre-nombre" class="swal2-input" maxlength="255" placeholder="Nombre del producto" style="${estiloInput}">
+                    <label>Precio</label>
+                    <input id="libre-precio" class="swal2-input" type="number" min="0.01" step="0.01" style="${estiloInput}">
+                    <label>Cantidad</label>
+                    <input id="libre-cantidad" class="swal2-input" type="number" min="1" step="1" value="1" style="${estiloInput}">
+                    <label>Descuento</label>
+                    <div style="display:grid; grid-template-columns:90px 1fr; gap:10px;">
+                        <select id="libre-desc-tipo" class="swal2-select" style="margin:4px 0; width:100%; font-size:16px;">
+                            <option value="monto">₡</option>
+                            <option value="porcentaje">%</option>
+                        </select>
+                        <input id="libre-desc-valor" class="swal2-input" type="number" min="0" step="0.01" value="0" style="margin:4px 0; width:100%; box-sizing:border-box; font-size:16px;">
+                    </div>
+                </div>`,
+                showCancelButton: true,
+                confirmButtonText: 'Agregar',
+                cancelButtonText: 'Cancelar',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const nombre = document.getElementById('libre-nombre').value.trim();
+                    const precio = parseFloat(document.getElementById('libre-precio').value || '0');
+                    const cantidad = parseInt(document.getElementById('libre-cantidad').value || '0', 10);
+                    const descTipo = document.getElementById('libre-desc-tipo').value;
+                    const descValor = parseFloat(document.getElementById('libre-desc-valor').value || '0');
+
+                    if (!nombre) return Swal.showValidationMessage('Escribí el nombre.');
+                    if (nombre.length > 255) return Swal.showValidationMessage('El nombre no puede pasar de 255 caracteres.');
+                    if (!(precio > 0)) return Swal.showValidationMessage('El precio debe ser mayor a 0.');
+                    if (!(cantidad >= 1)) return Swal.showValidationMessage('La cantidad debe ser mayor a 0.');
+                    if (descValor < 0) return Swal.showValidationMessage('El descuento no puede ser negativo.');
+                    if (descTipo === 'porcentaje' && descValor > 100) return Swal.showValidationMessage('El descuento no puede pasar de 100%.');
+                    if (descTipo === 'monto' && descValor > precio * cantidad) return Swal.showValidationMessage('El descuento supera el valor de la línea.');
+
+                    return { nombre, precio, cantidad, descTipo, descValor };
+                },
+            });
+            if (!d) return;
+
+            lineasVentaTmp.push({
+                libre: true,
+                producto_id: null,
+                producto_variante_id: null,
+                nombre: d.nombre,
+                cantidad: d.cantidad,
+                precio_unit: d.precio,
+                descuento_tipo: d.descTipo,
+                descuento: d.descValor,
+            });
+            pintarLineasVenta();
+        }
+
         function quitarLineaVenta(i) {
             lineasVentaTmp.splice(i, 1);
             pintarLineasVenta();
@@ -1257,7 +1320,7 @@
             $('lista-lineas-venta').innerHTML = lineasVentaTmp.map((l, i) => `
             <div class="fila-linea">
                 <div>
-                    <div class="desc">${l.nombre}</div>
+                    <div class="desc">${l.nombre}${l.libre ? ' <span class="badge badge-gris">Libre</span>' : ''}</div>
                     <div class="sub">${l.cantidad} × ${colones(l.precio_unit)}${l.descuento > 0 ? ' · desc. ' + (l.descuento_tipo === 'porcentaje' ? l.descuento + '%' : colones(l.descuento)) : ''}</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
@@ -1367,13 +1430,15 @@
                 return;
             }
 
-            const nuevasLineas = lineasVentaTmp.map(l => ({
+                        const nuevasLineas = lineasVentaTmp.map(l => ({
                 producto_id: l.producto_id,
                 producto_variante_id: l.producto_variante_id,
                 cantidad: l.cantidad,
                 precio_unit: l.precio_unit,
                 descuento_tipo: l.descuento_tipo,
                 descuento: l.descuento,
+                libre: l.libre === true,
+                nombre_libre: l.libre === true ? l.nombre : null,
             }));
             const nuevasFilas = lineasVentaTmp.map(l => ({
                 nombre: l.nombre,
@@ -1689,7 +1754,7 @@
                     <span class="dev-cant-visible" id="dev-cant-visible-${i}">0</span>
                     <button type="button" class="btn-stepper" onclick="ajustarCantidadDevolucion(${i}, 1)">+</button>
                 </div>
-                ${puedeRegresarStock ? `<label style="font-size:12px; display:flex; align-items:center; gap:4px;"><input type="checkbox" id="dev-stock-${i}" style="width:auto;"> Regresar a stock</label>` : ''}
+                ${puedeRegresarStock && !l.libre ? `<label style="font-size:12px; display:flex; align-items:center; gap:4px;"><input type="checkbox" id="dev-stock-${i}" style="width:auto;"> Regresar a stock</label>` : ''}
             </div>`).join('');
             $('tarjeta-lineas-dev').style.display = 'block';
         }

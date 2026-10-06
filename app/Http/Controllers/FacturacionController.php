@@ -95,15 +95,16 @@ class FacturacionController extends Controller
             ->get();
 
         $facturasDevolucion = $facturas->map(function (Factura $f) {
-            $lineas = $f->lineas->map(function ($l) {
+                        $lineas = $f->lineas->map(function ($l) use ($f) {
                 $yaDevuelto = (int) round(DevolucionLinea::where('factura_linea_id', $l->id)->sum('cantidad'));
                 $disponible = max(0, (int) $l->cantidad - $yaDevuelto);
-                return [
+                                return [
                     'factura_linea_id' => $l->id,
                     'descripcion' => $l->descripcion,
                     'cantidad' => (int) $l->cantidad,
                     'disponible' => $disponible,
                     'precio_unit' => (float) $l->precio_unit,
+                    'libre' => $l->producto_id === null && $f->operacion_id !== null,
                 ];
             })->filter(fn($l) => $l['disponible'] > 0)->values();
 
