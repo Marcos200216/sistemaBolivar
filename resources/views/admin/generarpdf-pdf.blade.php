@@ -105,7 +105,7 @@
             <tr>
                 <td>
                     <div class="rotulo">De:</div>
-                   <div class="valor-nombre" style="font-size: {{ $tamNombre }}pt;">Distribuidora Guana</div>
+                   <div class="valor-nombre" style="font-size: {{ $tamNombre }}pt;">DISTRIBUIDORA GUANA</div>
                 </td>
             </tr>
             <tr>
