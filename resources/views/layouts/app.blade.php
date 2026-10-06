@@ -780,6 +780,12 @@
                 zoom: var(--escala);
             }
         }
+        /* Títulos de pantalla: mismo color y peso que Generar PDF */
+.main h1 {
+    color: var(--azul-oscuro) !important;
+    font-size: 22px;
+    font-weight: 700;
+}
     </style>
     @stack('estilos')
 </head>
