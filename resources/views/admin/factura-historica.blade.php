@@ -13,7 +13,14 @@
     <title>Factura N° {{ $numero }}</title>
     <style>
     * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    @page { margin: 14mm 12mm; }
+   @if ($paraPdf)
+@page { margin: 40mm 12mm 22mm 12mm; }
+.cab-fijo { position: fixed; top: -36mm; left: 0; width: 100%; }
+.pie-fijo { position: fixed; bottom: -17mm; left: 0; width: 100%; margin: 0; }
+.pagina:after { content: "Página " counter(page); }
+@else
+@page { margin: 14mm 12mm; }
+@endif
 
     body {
         margin: 0;
@@ -120,7 +127,9 @@
     /* ---------- Pie ---------- */
     .pie { margin-top: 28px; padding-top: 12px; border-top: 1px solid #E3E1DB; text-align: center; font-size: 10.5px; color: #6D7480; }
     .pie .gracias { margin-bottom: 2px; font-size: 12px; font-weight: bold; color: #0A2E6E; }
-
+table.tabla thead { display: table-header-group; }
+table.tabla tfoot { display: table-row-group; }
+.pie { page-break-inside: avoid; }
     @media print {
         body { background: #ffffff; padding: 0; }
         .hoja { max-width: none; padding: 0; border-radius: 0; box-shadow: none; }
@@ -150,7 +159,7 @@
         $marcaNombre = $nombreCanal ?? ($negocio ?? 'Distribuidora Bolívar');
         $logoSrc = !empty($logo) ? ($paraPdf ? public_path('images/' . $logo) : asset('images/' . $logo)) : null;
     @endphp
-    <div class="banda">
+   <div class="banda {{ $paraPdf ? 'cab-fijo' : '' }}">
         <table class="cab">
             <tr>
                 <td class="cab-izq">
@@ -235,10 +244,11 @@
         </tr>
     </table>
 
-    <div class="pie">
-        <div class="gracias">Gracias por su preferencia</div>
-        <div>{{ $marcaNombre }}</div>
-    </div>
+    <div class="pie {{ $paraPdf ? 'pie-fijo' : '' }}">
+    <div class="gracias">Gracias por su preferencia</div>
+    <div>{{ $marcaNombre }}</div>
+    @if ($paraPdf)<div class="tenue pagina"></div>@endif
+</div>
 
 </div>
 </body>
