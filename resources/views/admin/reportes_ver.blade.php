@@ -71,6 +71,7 @@
         .tabla-reporte { max-height: calc(100dvh - 300px); min-height: 240px; overflow: auto; }
         .tabla-reporte thead th { position: sticky; top: 0; z-index: 1; box-shadow: 0 1px 0 var(--borde); }
         .tarjeta-reporte .tabla-reporte { max-height: calc(100dvh - 460px); min-height: 240px; }
+                     .tabla-reporte.tabla-corta { max-height: 340px; min-height: 200px; }
     }
 
     @media (max-width: 760px) {
@@ -110,7 +111,7 @@
 
     // Paginador (listados y rutas usan paginate() en el controlador)
     $paginador = $tipo === 'rutas' ? $reportes : ($data['filas'] ?? null);
-    $etiquetasPag = ['ventas' => 'facturas', 'abonos' => 'abonos', 'gastos' => 'gastos', 'compras' => 'compras', 'inventario' => 'productos', 'rutas' => 'rutas'];
+          $etiquetasPag = ['ventas' => 'facturas', 'abonos' => 'abonos', 'gastos' => 'gastos', 'compras' => 'compras', 'inventario' => 'productos', 'rutas' => 'rutas', 'cancelados' => 'clientes', 'atrasados' => 'clientes'];
     $pag = ($paginador && $paginador->total() > 0) ? [
         'current_page' => $paginador->currentPage(),
         'last_page' => $paginador->lastPage(),
@@ -144,11 +145,11 @@
             </select>
         </div>
     @endif
-    <div class="campo">
+       <div class="campo" @if ($tipo === 'atrasados') style="display:none;" @endif>
         <label>Desde</label>
         <input type="date" name="desde" value="{{ $desde }}">
     </div>
-    <div class="campo">
+    <div class="campo" @if ($tipo === 'atrasados') style="display:none;" @endif>
         <label>Hasta</label>
         <input type="date" name="hasta" value="{{ $hasta }}">
     </div>
@@ -371,7 +372,7 @@
                 $cols = collect($data['columnas']);
                 $keys = $cols->pluck('key')->all();
                 $keyTitulo = collect(['cliente', 'producto', 'proveedor', 'descripcion', 'categoria'])->first(fn ($k) => in_array($k, $keys));
-                $keyMonto = collect(['total', 'monto'])->first(fn ($k) => in_array($k, $keys));
+                $keyMonto = collect(['total', 'monto', 'saldo'])->first(fn ($k) => in_array($k, $keys));
                 $keyFecha = in_array('fecha', $keys) ? 'fecha' : null;
                 $keyId = in_array('id', $keys) ? 'id' : null;
                 $usadas = array_filter([$keyTitulo, $keyMonto, $keyFecha, $keyId]);
@@ -380,7 +381,7 @@
             @endphp
 
             {{-- Desktop: tabla con scroll interno --}}
-            <div class="tabla-reporte tabla-scroll solo-desktop">
+                       <div class="tabla-reporte tabla-scroll solo-desktop {{ in_array($tipo, ['cancelados', 'atrasados']) ? 'tabla-corta' : '' }}">
                 <table>
                     <thead>
                         <tr>

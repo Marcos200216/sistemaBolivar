@@ -21,16 +21,28 @@ use Illuminate\Support\Facades\Schema;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\Devolucion;
 use App\Models\User;
+use App\Services\AtrasadosService;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class ReporteController extends Controller
 {
-    private const TIPOS = [
+       private const TIPOS = [
         'ventas' => 'Ventas',
         'abonos' => 'Abonos',
         'gastos' => 'Gastos',
         'compras' => 'Compras',
         'inventario' => 'Inventario',
         'rutas' => 'Rutas',
+        'cancelados' => 'Cancelados',
+        'atrasados' => 'Atrasados',
+    ];
+
+    private const COLUMNAS_ATRASADOS = [
+        ['key' => 'codigo', 'label' => 'Código', 'tipo' => 'text'],
+        ['key' => 'cliente', 'label' => 'Cliente', 'tipo' => 'text'],
+        ['key' => 'telefono', 'label' => 'Teléfono', 'tipo' => 'text'],
+        ['key' => 'saldo', 'label' => 'Saldo', 'tipo' => 'money'],
+        ['key' => 'dias', 'label' => 'Días sin abonar', 'tipo' => 'num'],
     ];
 
     // ------------------------------------------------------------------
@@ -64,13 +76,33 @@ class ReporteController extends Controller
             'reportes' => collect(),
         ];
 
-              if ($tipo === 'rutas') {
+        if ($tipo === 'rutas') {
             $vista['reportes'] = $this->consultaRutas($ctx)->paginate(1)->withQueryString();
             $vista['resumenRutas'] = $this->resumenRutas($ctx);
             // Cobrado por administrador de cada ruta de la página (se calcula en vivo)
             $vista['cobroAdmins'] = $vista['reportes']->getCollection()
-                ->mapWithKeys(fn ($r) => [$r->id => $this->resumenAdmins($this->idsOperaciones($r))])
+                ->mapWithKeys(fn($r) => [$r->id => $this->resumenAdmins($this->idsOperaciones($r))])
                 ->all();
+            return view('admin.reportes_ver', $vista);
+        }
+        
+        if ($tipo === 'atrasados') {
+            $datos = $this->datosAtrasados($ctx);
+            $porPagina = 50;
+            $pagina = LengthAwarePaginator::resolveCurrentPage();
+
+            $vista['data'] = [
+                'columnas' => self::COLUMNAS_ATRASADOS,
+                'filas' => new LengthAwarePaginator(
+                    $datos['filas']->forPage($pagina, $porPagina)->values(),
+                    $datos['filas']->count(),
+                    $porPagina,
+                    $pagina,
+                    ['path' => $request->url(), 'query' => $request->query()]
+                ),
+                'totales' => $datos['totales'],
+            ];
+
             return view('admin.reportes_ver', $vista);
         }
 
@@ -113,21 +145,71 @@ class ReporteController extends Controller
             }
             return Excel::download(new ReporteExport('Rutas', $headings, $rows, [], [8, 9]), $nombre);
         }
+        
+                if ($tipo === 'atrasados') {
+            $datos = $this->datosAtrasados($ctx);
 
+            // En el Excel salen todas las columnas menos el código
+            $colsExcel = array_values(array_filter(
+                self::COLUMNAS_ATRASADOS,
+                fn ($col) => in_array($col['key'], ['cliente', 'telefono', 'saldo', 'dias'], true)
+            ));
+
+            $headings = array_column($colsExcel, 'label');
+            $money = [];
+            foreach ($colsExcel as $i => $col) {
+                if ($col['tipo'] === 'money') {
+                    $money[] = $i;
+                }
+            }
+
+            $rows = $datos['filas']->map(function ($fila) use ($colsExcel) {
+                $out = [];
+                foreach ($colsExcel as $col) {
+                    $out[] = $this->valorCelda($fila->{$col['key']} ?? null, $col['tipo']);
+                }
+                return $out;
+            })->all();
+
+            $resumen = [];
+            $resumenMoney = [];
+            $i = 0;
+            foreach ($datos['totales'] as $label => $t) {
+                $resumen[] = [$label, $t['valor']];
+                if ($t['tipo'] === 'money') {
+                    $resumenMoney[] = $i;
+                }
+                $i++;
+            }
+
+            return Excel::download(
+                new ReporteExport('Atrasados', $headings, $rows, $resumen, $money, $resumenMoney),
+                $nombre
+            );
+        }
         $def = $this->definicion($tipo, $ctx);
 
-        $headings = array_column($def['columnas'], 'label');
+                // Si el reporte define 'excel', solo salen esas columnas; si no, salen todas las de la tabla
+        $colsExcel = $def['columnas'];
+        if (!empty($def['excel'])) {
+            $colsExcel = array_values(array_filter(
+                $def['columnas'],
+                fn ($c) => in_array($c['key'], $def['excel'], true)
+            ));
+        }
+
+        $headings = array_column($colsExcel, 'label');
         $money = [];
-        foreach ($def['columnas'] as $i => $col) {
+        foreach ($colsExcel as $i => $col) {
             if ($col['tipo'] === 'money') {
                 $money[] = $i;
             }
         }
 
         $rows = $this->consultaListado($def)->get()
-            ->map(function ($fila) use ($def) {
+            ->map(function ($fila) use ($colsExcel) {
                 $out = [];
-                foreach ($def['columnas'] as $col) {
+                foreach ($colsExcel as $col) {
                     $out[] = $this->valorCelda($fila->{$col['key']} ?? null, $col['tipo']);
                 }
                 return $out;
@@ -244,14 +326,14 @@ class ReporteController extends Controller
     }
 
     private function porFecha($q, string $col, ?string $desde, ?string $hasta): void
-{
-    if ($desde) {
-        $q->where($col, '>=', $desde . ' 00:00:00');
+    {
+        if ($desde) {
+            $q->where($col, '>=', $desde . ' 00:00:00');
+        }
+        if ($hasta) {
+            $q->where($col, '<', Carbon::parse($hasta)->addDay()->format('Y-m-d') . ' 00:00:00');
+        }
     }
-    if ($hasta) {
-        $q->where($col, '<', Carbon::parse($hasta)->addDay()->format('Y-m-d') . ' 00:00:00');
-    }
-}
 
     private function valorCelda($v, string $tipo)
     {
@@ -324,17 +406,22 @@ class ReporteController extends Controller
                     ->leftJoin($s, "$s.id", '=', "$f.sucursal_id")
                     ->whereNotNull("$f.operacion_id")
                     // Las facturas que crea un traspaso no son ventas reales
-                    ->whereNotIn("$f.operacion_id", fn ($sub) => $sub->select("$o.id")->from($o)->where("$o.tipo", 'traspaso'));
+                    ->whereNotIn("$f.operacion_id", fn($sub) => $sub->select("$o.id")->from($o)->where("$o.tipo", 'traspaso'));
                 $this->porSucursal($base, $sel, "$f.sucursal_id");
                 $this->porFecha($base, "$f.created_at", $d, $h);
 
                 return [
                     'base' => $base,
                     'select' => [
-                        "$f.id as id", "$f.created_at as fecha",
-                        DB::raw("$sNom as sucursal"), DB::raw("$cNom as cliente"),
-                        "$f.estado as estado", "$f.descuento as descuento",
-                        "$f.total as total", "$f.efectivo as efectivo", "$f.sinpe as sinpe",
+                        "$f.id as id",
+                        "$f.created_at as fecha",
+                        DB::raw("$sNom as sucursal"),
+                        DB::raw("$cNom as cliente"),
+                        "$f.estado as estado",
+                        "$f.descuento as descuento",
+                        "$f.total as total",
+                        "$f.efectivo as efectivo",
+                        "$f.sinpe as sinpe",
                     ],
                     'orden' => [["$f.created_at", 'desc'], ["$f.id", 'desc']],
                     'columnas' => [
@@ -366,19 +453,23 @@ class ReporteController extends Controller
                     ->join($c, "$c.id", '=', "$a.cliente_id")
                     ->leftJoin($s, "$s.id", '=', "$c.sucursal_id")
                     // Los abonos de traspaso no son plata cobrada. Los migrados (operacion_id nulo) se quedan.
-                                       ->where(fn ($w) => $w->whereNull("$a.operacion_id")
-                        ->orWhereNotIn("$a.operacion_id", fn ($sub) => $sub->select("$o.id")->from($o)->where("$o.tipo", 'traspaso')))
+                    ->where(fn($w) => $w->whereNull("$a.operacion_id")
+                        ->orWhereNotIn("$a.operacion_id", fn($sub) => $sub->select("$o.id")->from($o)->where("$o.tipo", 'traspaso')))
                     // Registros del sistema viejo sin monto ni cobro no son pagos: no se cuentan ni se listan
-                    ->where(fn ($w) => $w->where("$a.monto_abono", '<>', 0)->orWhere("$a.efectivo", '<>', 0)->orWhere("$a.sinpe", '<>', 0));
+                    ->where(fn($w) => $w->where("$a.monto_abono", '<>', 0)->orWhere("$a.efectivo", '<>', 0)->orWhere("$a.sinpe", '<>', 0));
                 $this->porSucursal($base, $sel, "$c.sucursal_id");
                 $this->porFecha($base, "$a.fecha", $d, $h);
 
                 return [
                     'base' => $base,
                     'select' => [
-                        "$a.id as id", "$a.fecha as fecha",
-                        DB::raw("$sNom as sucursal"), DB::raw("$cNom as cliente"),
-                        "$a.monto_abono as monto", "$a.efectivo as efectivo", "$a.sinpe as sinpe",
+                        "$a.id as id",
+                        "$a.fecha as fecha",
+                        DB::raw("$sNom as sucursal"),
+                        DB::raw("$cNom as cliente"),
+                        "$a.monto_abono as monto",
+                        "$a.efectivo as efectivo",
+                        "$a.sinpe as sinpe",
                     ],
                     'orden' => [["$a.fecha", 'desc'], ["$a.id", 'desc']],
                     'columnas' => [
@@ -407,8 +498,12 @@ class ReporteController extends Controller
                 return [
                     'base' => $base,
                     'select' => [
-                        "$g.id as id", "$g.fecha as fecha", DB::raw("$sNom as sucursal"),
-                        "$g.categoria as categoria", "$g.descripcion as descripcion", "$g.monto as monto",
+                        "$g.id as id",
+                        "$g.fecha as fecha",
+                        DB::raw("$sNom as sucursal"),
+                        "$g.categoria as categoria",
+                        "$g.descripcion as descripcion",
+                        "$g.monto as monto",
                     ],
                     'orden' => [["$g.fecha", 'desc'], ["$g.id", 'desc']],
                     'columnas' => [
@@ -437,10 +532,15 @@ class ReporteController extends Controller
                 return [
                     'base' => $base,
                     'select' => [
-                        "$co.id as id", "$co.fecha as fecha", DB::raw("$sNom as sucursal"),
-                        DB::raw("$pNom as proveedor"), "$co.descripcion as descripcion",
-                        "$co.tipo as tipo", "$co.estado as estado",
-                        "$co.monto_total as monto", "$co.saldo_pendiente as pendiente",
+                        "$co.id as id",
+                        "$co.fecha as fecha",
+                        DB::raw("$sNom as sucursal"),
+                        DB::raw("$pNom as proveedor"),
+                        "$co.descripcion as descripcion",
+                        "$co.tipo as tipo",
+                        "$co.estado as estado",
+                        "$co.monto_total as monto",
+                        "$co.saldo_pendiente as pendiente",
                     ],
                     'orden' => [["$co.fecha", 'desc'], ["$co.id", 'desc']],
                     'columnas' => [
@@ -460,10 +560,62 @@ class ReporteController extends Controller
                     ],
                 ];
 
+            case 'cancelados':
+                $a = $this->t(Abono::class);
+                $f = $this->t(Factura::class);
+
+                // Último abono real (sin registros en cero) y última factura no anulada de cada cliente
+                $ultAbono = DB::table($a)
+                    ->selectRaw('cliente_id, MAX(COALESCE(fecha, created_at)) as ult')
+                    ->where(fn($w) => $w->where('monto_abono', '<>', 0)->orWhere('efectivo', '<>', 0)->orWhere('sinpe', '<>', 0))
+                    ->groupBy('cliente_id');
+                $ultFactura = DB::table($f)
+                    ->selectRaw('cliente_id, MAX(COALESCE(fecha, created_at)) as ult')
+                    ->where('estado', '<>', 'anulada')
+                    ->groupBy('cliente_id');
+
+                // Fecha del último movimiento: la más reciente de las dos (puede ser NULL si nunca tuvo)
+                $ultimo = 'CASE WHEN ua.ult IS NULL THEN uf.ult WHEN uf.ult IS NULL THEN ua.ult WHEN ua.ult >= uf.ult THEN ua.ult ELSE uf.ult END';
+
+                // Cancelado = saldo en cero o a favor
+                $base = DB::table($c)
+                    ->leftJoin($s, "$s.id", '=', "$c.sucursal_id")
+                    ->leftJoinSub($ultAbono, 'ua', 'ua.cliente_id', '=', "$c.id")
+                    ->leftJoinSub($ultFactura, 'uf', 'uf.cliente_id', '=', "$c.id")
+                    ->where("$c.saldo_actual", '<=', 0);
+                $this->porSucursal($base, $sel, "$c.sucursal_id");
+                if ($d) {
+                    $base->whereRaw("($ultimo) >= ?", [$d . ' 00:00:00']);
+                }
+                if ($h) {
+                    $base->whereRaw("($ultimo) < ?", [Carbon::parse($h)->addDay()->format('Y-m-d') . ' 00:00:00']);
+                }
+
+                return [
+                    'base' => $base,
+                                        'select' => [
+                        "$c.codigo as codigo", "$c.nombre as cliente",
+                        "$c.telefono as telefono", "$c.saldo_actual as saldo",
+                        DB::raw("($ultimo) as ultimo_mov"), // solo para ordenar, no se muestra
+                    ],
+                    'orden' => [['ultimo_mov', 'desc'], ["$c.nombre", 'asc']],
+                    'columnas' => [
+                        ['key' => 'codigo', 'label' => 'Código', 'tipo' => 'text'],
+                        ['key' => 'cliente', 'label' => 'Cliente', 'tipo' => 'text'],
+                        ['key' => 'telefono', 'label' => 'Teléfono', 'tipo' => 'text'],
+                        ['key' => 'saldo', 'label' => 'Saldo', 'tipo' => 'money'],
+                    ],
+                    'excel' => ['cliente', 'telefono', 'saldo'], // columnas que salen en el Excel
+                    'totales' => [
+                        'Clientes cancelados' => ['COUNT(*)', 'num'],
+                        'Con saldo a favor' => ["COALESCE(SUM(CASE WHEN $c.saldo_actual < 0 THEN 1 ELSE 0 END),0)", 'num'],
+                        'Total a favor' => ["COALESCE(-SUM(CASE WHEN $c.saldo_actual < 0 THEN $c.saldo_actual ELSE 0 END),0)", 'money'],
+                    ],
+                ];
             case 'inventario':
                 $l = $this->t(FacturaLinea::class);
                 $f = $this->t(Factura::class);
-                                $base = DB::table($l)
+                $base = DB::table($l)
                     ->join($f, "$f.id", '=', "$l.factura_id")
                     ->whereNotNull("$f.operacion_id")
                     ->whereNotNull("$l.producto_id") // excluye líneas libres (fuera de catálogo)
@@ -504,19 +656,77 @@ class ReporteController extends Controller
     // RUTAS
     // ------------------------------------------------------------------
 
+
+
+        // ------------------------------------------------------------------
+    // ATRASADOS (la regla vive en AtrasadosService, igual que en Rutas)
+    // ------------------------------------------------------------------
+
+    /**
+     * Clientes con deuda (saldo > 0) que llevan 4 semanas o más sin abonar.
+     * @return array{filas: \Illuminate\Support\Collection, totales: array}
+     */
+    private function datosAtrasados(array $ctx): array
+    {
+        $c = $this->t(Cliente::class);
+
+        // Query builder puro: no depende del Global Scope de Cliente
+        $q = DB::table($c)
+            ->where("$c.saldo_actual", '>', 0)
+            ->select("$c.id", "$c.sucursal_id", "$c.codigo", "$c.nombre", "$c.telefono", "$c.saldo_actual", "$c.created_at");
+        $this->porSucursal($q, $ctx['sel'], "$c.sucursal_id");
+        $clientes = $q->get();
+
+        // El servicio consulta Factura con Global Scope (sucursal en sesión): se calcula por
+        // sucursal, y la sesión original se restaura siempre al terminar.
+        $servicio = app(AtrasadosService::class);
+        $sesionOriginal = session('sucursal_id');
+        $referencias = collect();
+        try {
+            foreach ($clientes->groupBy('sucursal_id') as $sucursalId => $grupo) {
+                session(['sucursal_id' => $sucursalId]);
+                foreach ($servicio->referencias($grupo->values()) as $clienteId => $fecha) {
+                    $referencias[$clienteId] = $fecha;
+                }
+            }
+        } finally {
+            session(['sucursal_id' => $sesionOriginal]);
+        }
+
+        $hoy = now();
+        $filas = $clientes
+            ->filter(fn ($cli) => $referencias->has($cli->id))
+            ->map(fn ($cli) => (object) [
+                'codigo' => $cli->codigo,
+                'cliente' => $cli->nombre,
+                'telefono' => $cli->telefono,
+                'saldo' => (float) $cli->saldo_actual,
+                'dias' => (int) floor(abs($referencias[$cli->id]->diffInDays($hoy))),
+            ])
+            ->sortBy([['dias', 'desc'], ['cliente', 'asc']])
+            ->values();
+
+        $totales = [
+            'Clientes atrasados' => ['valor' => (float) $filas->count(), 'tipo' => 'num'],
+            'Saldo atrasado' => ['valor' => round((float) $filas->sum('saldo'), 2), 'tipo' => 'money'],
+            'Más atrasado (días)' => ['valor' => (float) ($filas->max('dias') ?? 0), 'tipo' => 'num'],
+        ];
+
+        return ['filas' => $filas, 'totales' => $totales];
+    }
     private function consultaRutas(array $ctx)
     {
         return ReporteRuta::todasLasSucursales()
             ->with('sucursal')
-            ->when($ctx['sel'] !== 'todas', fn ($q) => $q->where('reportes_ruta.sucursal_id', (int) $ctx['sel']))
-           ->when($ctx['desde'], fn ($q) => $q->where('generado_en', '>=', $ctx['desde'] . ' 00:00:00'))
-->when($ctx['hasta'], fn ($q) => $q->where('generado_en', '<', Carbon::parse($ctx['hasta'])->addDay()->format('Y-m-d') . ' 00:00:00'))
-           ->orderByDesc('generado_en')
-->orderByDesc('reportes_ruta.id');
+            ->when($ctx['sel'] !== 'todas', fn($q) => $q->where('reportes_ruta.sucursal_id', (int) $ctx['sel']))
+            ->when($ctx['desde'], fn($q) => $q->where('generado_en', '>=', $ctx['desde'] . ' 00:00:00'))
+            ->when($ctx['hasta'], fn($q) => $q->where('generado_en', '<', Carbon::parse($ctx['hasta'])->addDay()->format('Y-m-d') . ' 00:00:00'))
+            ->orderByDesc('generado_en')
+            ->orderByDesc('reportes_ruta.id');
     }
 
 
-        /** Ids de las operaciones guardadas en un reporte de ruta (los reportes viejos no las tienen). */
+    /** Ids de las operaciones guardadas en un reporte de ruta (los reportes viejos no las tienen). */
     private function idsOperaciones(ReporteRuta $r): array
     {
         $ids = [];
@@ -572,9 +782,12 @@ class ReporteController extends Controller
             $k = $op->user_id ?? 0;
             $out[$k] ??= [
                 'admin' => $op->admin ?? 'Sin usuario',
-                'efectivo' => 0.0, 'sinpe' => 0.0,
-                'ventas' => 0, 'vendido' => 0.0,
-                'devuelto' => 0.0, 'sin_abono' => 0,
+                'efectivo' => 0.0,
+                'sinpe' => 0.0,
+                'ventas' => 0,
+                'vendido' => 0.0,
+                'devuelto' => 0.0,
+                'sin_abono' => 0,
             ];
 
             if ($op->no_abono) {
@@ -602,42 +815,42 @@ class ReporteController extends Controller
         }
         unset($fila);
 
-        usort($out, fn ($x, $y) => strcmp($x['admin'], $y['admin']));
+        usort($out, fn($x, $y) => strcmp($x['admin'], $y['admin']));
 
         return $out;
     }
     /** Totales de TODAS las rutas del filtro (no solo la página visible). */
-private function resumenRutas(array $ctx): array
-{
-    $reportes = $this->consultaRutas($ctx)
-        ->setEagerLoads([])
-        ->reorder()
-        ->select('reportes_ruta.id', 'reportes_ruta.datos')
-        ->get();
+    private function resumenRutas(array $ctx): array
+    {
+        $reportes = $this->consultaRutas($ctx)
+            ->setEagerLoads([])
+            ->reorder()
+            ->select('reportes_ruta.id', 'reportes_ruta.datos')
+            ->get();
 
-    $efectivo = 0.0;
-    $sinpe = 0.0;
-    $finalizados = 0;
-    $noAbono = 0;
+        $efectivo = 0.0;
+        $sinpe = 0.0;
+        $finalizados = 0;
+        $noAbono = 0;
 
-    foreach ($reportes as $r) {
-        foreach (($r->datos ?? []) as $d) {
-            $efectivo += (float) ($d['efectivo'] ?? 0);
-            $sinpe += (float) ($d['sinpe'] ?? 0);
-            if (($d['estado'] ?? '') === 'finalizado') {
-                $finalizados++;
-            } elseif (($d['estado'] ?? '') === 'no_abono') {
-                $noAbono++;
+        foreach ($reportes as $r) {
+            foreach (($r->datos ?? []) as $d) {
+                $efectivo += (float) ($d['efectivo'] ?? 0);
+                $sinpe += (float) ($d['sinpe'] ?? 0);
+                if (($d['estado'] ?? '') === 'finalizado') {
+                    $finalizados++;
+                } elseif (($d['estado'] ?? '') === 'no_abono') {
+                    $noAbono++;
+                }
             }
         }
-    }
 
-    return [
-        'reportes' => $reportes->count(),
-        'efectivo' => $efectivo,
-        'sinpe' => $sinpe,
-        'finalizados' => $finalizados,
-        'noAbono' => $noAbono,
-    ];
-}
+        return [
+            'reportes' => $reportes->count(),
+            'efectivo' => $efectivo,
+            'sinpe' => $sinpe,
+            'finalizados' => $finalizados,
+            'noAbono' => $noAbono,
+        ];
+    }
 }

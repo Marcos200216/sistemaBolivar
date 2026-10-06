@@ -146,7 +146,7 @@ Route::middleware('auth')->group(function () {
             Route::put('/compras/proveedores/{proveedor}', [CompraController::class, 'actualizarProveedor'])->name('compras.proveedores.update');
             Route::delete('/compras/proveedores/{proveedor}', [CompraController::class, 'eliminarProveedor'])->name('compras.proveedores.destroy');
 
-            $tiposReporte = 'ventas|abonos|gastos|compras|inventario|rutas';
+            $tiposReporte = 'ventas|abonos|gastos|compras|inventario|rutas|cancelados|atrasados';
             Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
             Route::get('/reportes/{tipo}/excel', [ReporteController::class, 'excel'])->where('tipo', $tiposReporte)->name('reportes.excel');
             Route::get('/reportes/{tipo}', [ReporteController::class, 'ver'])->where('tipo', $tiposReporte)->name('reportes.ver');
