@@ -454,7 +454,7 @@ class ReporteController extends Controller
                     ->leftJoin($s, "$s.id", '=', "$c.sucursal_id")
                     // Los abonos de traspaso no son plata cobrada. Los migrados (operacion_id nulo) se quedan.
                     ->where(fn($w) => $w->whereNull("$a.operacion_id")
-                        ->orWhereNotIn("$a.operacion_id", fn($sub) => $sub->select("$o.id")->from($o)->where("$o.tipo", 'traspaso')))
+                        ->orWhereNotIn("$a.operacion_id", fn($sub) => $sub->select("$o.id")->from($o)->whereIn("$o.tipo", ['traspaso', 'rebaja'])))
                     // Registros del sistema viejo sin monto ni cobro no son pagos: no se cuentan ni se listan
                     ->where(fn($w) => $w->where("$a.monto_abono", '<>', 0)->orWhere("$a.efectivo", '<>', 0)->orWhere("$a.sinpe", '<>', 0));
                 $this->porSucursal($base, $sel, "$c.sucursal_id");

@@ -49,7 +49,7 @@ class AbonoController extends Controller
 
         // Operaciones de traspaso: sus abonos/facturas no cuentan como pagos ni compras reales
         // (igual que en Reportes). Los migrados (operacion_id NULL) se conservan.
-        $traspasos = Operacion::withoutGlobalScopes()->where('tipo', 'traspaso')->select('id');
+        $traspasos = Operacion::withoutGlobalScopes()->whereIn('tipo', ['traspaso', 'rebaja'])->select('id');
         $sinTraspaso = fn ($q) => $q->whereNull('operacion_id')->orWhereNotIn('operacion_id', $traspasos);
 
         $abonos = Abono::whereIn('cliente_id', $ids)

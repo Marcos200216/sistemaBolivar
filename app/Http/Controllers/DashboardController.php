@@ -28,7 +28,7 @@ class DashboardController extends Controller
             'dias' => abs((int) $fecha->diffInDays(now())),
         ])->values();
 
-        $operacionesHoy = Operacion::whereDate('fecha', today())->count();
+        $operacionesHoy = Operacion::whereDate('fecha', today())->where(fn ($q) => $q->whereNull('tipo')->orWhereNotIn('tipo', ['traspaso', 'rebaja']))->count();
 
         $ultimasOperaciones = Operacion::orderByDesc('id')->limit(5)->get();
         $nombres = Cliente::whereIn('id', $ultimasOperaciones->pluck('cliente_id'))->pluck('nombre', 'id');

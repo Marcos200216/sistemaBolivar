@@ -55,7 +55,7 @@ class ResumenService
         $this->porSucursal($q, $sel, "$o.sucursal_id");
         $this->porFecha($q, "$o.fecha", $desde, $hasta);
         // Un traspaso no es una visita. El tipo de las operaciones normales puede ser nulo.
-        $q->where(fn ($w) => $w->whereNull("$o.tipo")->orWhere("$o.tipo", '!=', 'traspaso'));
+        $q->where(fn ($w) => $w->whereNull("$o.tipo")->orWhereNotIn("$o.tipo", ['traspaso', 'rebaja']));
         $operaciones = $q->count();
 
         $q = DB::table($g);
@@ -134,7 +134,7 @@ class ResumenService
     private function sinTraspasos($q, string $colOperacionId, string $tablaOperaciones): void
     {
         $q->where(fn ($w) => $w->whereNull($colOperacionId)
-            ->orWhereNotIn($colOperacionId, fn ($sub) => $sub->select("$tablaOperaciones.id")->from($tablaOperaciones)->where("$tablaOperaciones.tipo", 'traspaso')));
+            ->orWhereNotIn($colOperacionId, fn ($sub) => $sub->select("$tablaOperaciones.id")->from($tablaOperaciones)->whereIn("$tablaOperaciones.tipo", ['traspaso', 'rebaja'])));
     }
 
     private function t(string $modelo): string

@@ -923,6 +923,17 @@
                     Generar PDF
                 </a>
             @endif
+
+            @if (auth()->user()->es_superadmin)
+    <a href="{{ route('modificar-monto.index') }}" class="{{ request()->routeIs('modificar-monto.*') ? 'activo' : '' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+        Modificar monto
+    </a>
+@endif
+
             @if (auth()->user()->es_superadmin)
                 <a href="{{ route('administradores.index') }}"
                     class="{{ request()->routeIs('administradores.*') ? 'activo' : '' }}">
@@ -1117,6 +1128,16 @@
                     Generar PDF
                 </a>
             @endif
+
+            @if (auth()->user()->es_superadmin)
+    <a href="{{ route('modificar-monto.index') }}" class="{{ request()->routeIs('modificar-monto.*') ? 'activo' : '' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+        Monto
+    </a>
+@endif
             @if (auth()->user()->es_superadmin)
                 <a href="{{ route('administradores.index') }}"
                     class="{{ request()->routeIs('administradores.*') ? 'activo' : '' }}">

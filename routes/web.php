@@ -19,6 +19,7 @@ use App\Http\Controllers\ComprobanteController;
 use App\Http\Controllers\TraspasoController;
 use App\Http\Controllers\GenerarPdfController;
 use App\Http\Controllers\ApartadoController;
+use App\Http\Controllers\AjusteMontoController;
 
 Route::get('/', function () {
     /** @disregard P1013 */
@@ -150,6 +151,15 @@ Route::middleware('auth')->group(function () {
             Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');
             Route::get('/reportes/{tipo}/excel', [ReporteController::class, 'excel'])->where('tipo', $tiposReporte)->name('reportes.excel');
             Route::get('/reportes/{tipo}', [ReporteController::class, 'ver'])->where('tipo', $tiposReporte)->name('reportes.ver');
+            // Modificar monto: ajustar saldo y facturas de clientes de cualquier sucursal
+            Route::get('/modificar-monto', [AjusteMontoController::class, 'index'])->name('modificar-monto.index');
+            Route::get('/modificar-monto/clientes', [AjusteMontoController::class, 'clientes'])->name('modificar-monto.clientes');
+            Route::get('/modificar-monto/clientes/{cliente}', [AjusteMontoController::class, 'cliente'])->whereNumber('cliente')->name('modificar-monto.cliente');
+            Route::get('/modificar-monto/clientes/{cliente}/simular', [AjusteMontoController::class, 'simular'])->whereNumber('cliente')->name('modificar-monto.simular');
+            Route::post('/modificar-monto/clientes/{cliente}/bajar', [AjusteMontoController::class, 'bajar'])->whereNumber('cliente')->name('modificar-monto.bajar');
+            Route::post('/modificar-monto/clientes/{cliente}/anular-todas', [AjusteMontoController::class, 'anularTodas'])->whereNumber('cliente')->name('modificar-monto.anular-todas');
+            Route::post('/modificar-monto/facturas/{factura}/editar', [AjusteMontoController::class, 'editarFactura'])->whereNumber('factura')->name('modificar-monto.editar-factura');
+            Route::post('/modificar-monto/facturas/{factura}/anular', [AjusteMontoController::class, 'anularFactura'])->whereNumber('factura')->name('modificar-monto.anular-factura');
         });
     });
 });
