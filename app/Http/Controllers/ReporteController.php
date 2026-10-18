@@ -23,10 +23,12 @@ use App\Models\Devolucion;
 use App\Models\User;
 use App\Services\AtrasadosService;
 use Illuminate\Pagination\LengthAwarePaginator;
+use App\Models\Ruta;
+use App\Models\RutaCliente;
 
 class ReporteController extends Controller
 {
-       private const TIPOS = [
+    private const TIPOS = [
         'ventas' => 'Ventas',
         'abonos' => 'Abonos',
         'gastos' => 'Gastos',
@@ -35,6 +37,10 @@ class ReporteController extends Controller
         'rutas' => 'Rutas',
         'cancelados' => 'Cancelados',
         'atrasados' => 'Atrasados',
+        'atrasados' => 'Atrasados',
+        'sin_abono' => 'No abonaron',
+        'sin_abono' => 'No abonaron',
+        'clientes' => 'Clientes',
     ];
 
     private const COLUMNAS_ATRASADOS = [
@@ -85,7 +91,7 @@ class ReporteController extends Controller
                 ->all();
             return view('admin.reportes_ver', $vista);
         }
-        
+
         if ($tipo === 'atrasados') {
             $datos = $this->datosAtrasados($ctx);
             $porPagina = 50;
@@ -108,9 +114,14 @@ class ReporteController extends Controller
 
         $def = $this->definicion($tipo, $ctx);
 
+        $filas = $this->consultaListado($def)->paginate(50)->withQueryString();
+        if (!empty($def['post'])) {
+            $filas->getCollection()->transform($def['post']);
+        }
+
         $vista['data'] = [
             'columnas' => $def['columnas'],
-            'filas' => $this->consultaListado($def)->paginate(50)->withQueryString(),
+            'filas' => $filas,
             'totales' => $this->calcularTotales($def),
         ];
 
@@ -145,14 +156,14 @@ class ReporteController extends Controller
             }
             return Excel::download(new ReporteExport('Rutas', $headings, $rows, [], [8, 9]), $nombre);
         }
-        
-                if ($tipo === 'atrasados') {
+
+        if ($tipo === 'atrasados') {
             $datos = $this->datosAtrasados($ctx);
 
             // En el Excel salen todas las columnas menos el código
             $colsExcel = array_values(array_filter(
                 self::COLUMNAS_ATRASADOS,
-                fn ($col) => in_array($col['key'], ['cliente', 'telefono', 'saldo', 'dias'], true)
+                fn($col) => in_array($col['key'], ['cliente', 'telefono', 'saldo', 'dias'], true)
             ));
 
             $headings = array_column($colsExcel, 'label');
@@ -189,12 +200,12 @@ class ReporteController extends Controller
         }
         $def = $this->definicion($tipo, $ctx);
 
-                // Si el reporte define 'excel', solo salen esas columnas; si no, salen todas las de la tabla
+        // Si el reporte define 'excel', solo salen esas columnas; si no, salen todas las de la tabla
         $colsExcel = $def['columnas'];
         if (!empty($def['excel'])) {
             $colsExcel = array_values(array_filter(
                 $def['columnas'],
-                fn ($c) => in_array($c['key'], $def['excel'], true)
+                fn($c) => in_array($c['key'], $def['excel'], true)
             ));
         }
 
@@ -206,11 +217,20 @@ class ReporteController extends Controller
             }
         }
 
-        $rows = $this->consultaListado($def)->get()
-            ->map(function ($fila) use ($colsExcel) {
+        $filasExcel = $this->consultaListado($def)->get();
+        if (!empty($def['post'])) {
+            $filasExcel = $filasExcel->map($def['post']);
+        }
+
+               $rows = $filasExcel
+            ->map(function ($fila) use ($colsExcel, $def) {
                 $out = [];
                 foreach ($colsExcel as $col) {
-                    $out[] = $this->valorCelda($fila->{$col['key']} ?? null, $col['tipo']);
+                    $val = $this->valorCelda($fila->{$col['key']} ?? null, $col['tipo']);
+                    if (isset($def['excel_max'][$col['key']]) && is_string($val)) {
+                        $val = mb_strimwidth($val, 0, $def['excel_max'][$col['key']], '…');
+                    }
+                    $out[] = $val;
                 }
                 return $out;
             })
@@ -268,6 +288,13 @@ class ReporteController extends Controller
                 $sel = (string) (int) $pedida;
             }
         }
+        $origen = in_array($request->query('origen'), ['ruta', 'sin_ruta'], true)
+            ? $request->query('origen')
+            : 'todas';
+
+                    $estado = in_array($request->query('estado'), ['activos', 'cancelados'], true)
+            ? $request->query('estado')
+            : 'todos';
 
         return [
             'desde' => $desde,
@@ -278,6 +305,8 @@ class ReporteController extends Controller
             'tipo' => $tipo,
             'orden' => $orden,
             'alerta' => $alerta,
+            'origen' => $origen,
+            'estado' => $estado,
         ];
     }
 
@@ -593,9 +622,11 @@ class ReporteController extends Controller
 
                 return [
                     'base' => $base,
-                                        'select' => [
-                        "$c.codigo as codigo", "$c.nombre as cliente",
-                        "$c.telefono as telefono", "$c.saldo_actual as saldo",
+                    'select' => [
+                        "$c.codigo as codigo",
+                        "$c.nombre as cliente",
+                        "$c.telefono as telefono",
+                        "$c.saldo_actual as saldo",
                         DB::raw("($ultimo) as ultimo_mov"), // solo para ordenar, no se muestra
                     ],
                     'orden' => [['ultimo_mov', 'desc'], ["$c.nombre", 'asc']],
@@ -610,6 +641,135 @@ class ReporteController extends Controller
                         'Clientes cancelados' => ['COUNT(*)', 'num'],
                         'Con saldo a favor' => ["COALESCE(SUM(CASE WHEN $c.saldo_actual < 0 THEN 1 ELSE 0 END),0)", 'num'],
                         'Total a favor' => ["COALESCE(-SUM(CASE WHEN $c.saldo_actual < 0 THEN $c.saldo_actual ELSE 0 END),0)", 'money'],
+                    ],
+                ];
+
+            case 'sin_abono':
+                $o = $this->t(Operacion::class);
+                $u = $this->t(User::class);
+                $rc = $this->t(RutaCliente::class);
+                $r = $this->t(Ruta::class);
+
+                // Visitas que pertenecen a un reporte de ruta ya exportado: [operacion_id => nombre de ruta]
+                $mapaRutas = $this->visitasEnReportesRuta($ctx);
+                $ids = array_map('intval', array_keys($mapaRutas));
+                $enRuta = $ids
+                    ? "($o.ruta_cliente_id IS NOT NULL OR $o.id IN (" . implode(',', $ids) . "))"
+                    : "$o.ruta_cliente_id IS NOT NULL";
+
+                $base = DB::table($o)
+                    ->join($c, "$c.id", '=', "$o.cliente_id")
+                    ->leftJoin($u, "$u.id", '=', "$o.user_id")
+                    ->leftJoin($s, "$s.id", '=', "$o.sucursal_id")
+                    ->leftJoin($rc, "$rc.id", '=', "$o.ruta_cliente_id")
+                    ->leftJoin($r, "$r.id", '=', "$rc.ruta_id")
+                    ->where("$o.no_abono", 1);
+                $this->porSucursal($base, $sel, "$o.sucursal_id");
+                $this->porFecha($base, "$o.created_at", $d, $h);
+
+                if ($ctx['origen'] === 'ruta') {
+                    $base->whereRaw($enRuta);
+                } elseif ($ctx['origen'] === 'sin_ruta') {
+                    $base->whereRaw("NOT $enRuta");
+                }
+
+                return [
+                    'base' => $base,
+                    'select' => [
+                        "$o.id as id",
+                        "$o.created_at as fecha",
+                        DB::raw("$sNom as sucursal"),
+                        DB::raw("$cNom as cliente"),
+                        "$o.saldo_final as saldo",
+                        DB::raw("COALESCE($u.name, 'Sin usuario') as admin"),
+                        DB::raw("$r.nombre as ruta"),
+                        "$o.no_abono_descripcion as descripcion",
+                    ],
+                    'orden' => [["$o.created_at", 'desc'], ["$o.id", 'desc']],
+                    'columnas' => [
+                        ['key' => 'id', 'label' => 'Visita #', 'tipo' => 'text'],
+                        ['key' => 'fecha', 'label' => 'Fecha', 'tipo' => 'fechahora'],
+                        ['key' => 'sucursal', 'label' => 'Sucursal', 'tipo' => 'text'],
+                        ['key' => 'cliente', 'label' => 'Cliente', 'tipo' => 'text'],
+                        ['key' => 'saldo', 'label' => 'Saldo', 'tipo' => 'money'],
+                        ['key' => 'admin', 'label' => 'Administrador', 'tipo' => 'text'],
+                        ['key' => 'ruta', 'label' => 'Ruta', 'tipo' => 'text'],
+                        ['key' => 'descripcion', 'label' => 'Descripción', 'tipo' => 'text'],
+                    ],
+                    'excel' => ['fecha', 'sucursal', 'cliente', 'saldo', 'admin', 'ruta', 'descripcion'],
+                    // Completa el nombre de la ruta de las visitas cuya fila de ruta ya se borró (rutas aleatorias exportadas)
+                    'post' => function ($fila) use ($mapaRutas) {
+                        if (empty($fila->ruta)) {
+                            $fila->ruta = $mapaRutas[$fila->id] ?? 'Sin ruta';
+                        }
+                        return $fila;
+                    },
+                    'totales' => [
+                        'Visitas sin abono' => ['COUNT(*)', 'num'],
+                        'Clientes distintos' => ["COUNT(DISTINCT $o.cliente_id)", 'num'],
+                        'Dentro de una ruta' => ["COALESCE(SUM(CASE WHEN $enRuta THEN 1 ELSE 0 END),0)", 'num'],
+                        'Fuera de ruta' => ["COALESCE(SUM(CASE WHEN $enRuta THEN 0 ELSE 1 END),0)", 'num'],
+                    ],
+                ];
+
+                            case 'clientes':
+                $todas = $sel === 'todas';
+
+                $base = DB::table($c)->leftJoin($s, "$s.id", '=', "$c.sucursal_id");
+                $this->porSucursal($base, $sel, "$c.sucursal_id");
+                if ($ctx['estado'] === 'activos') {
+                    $base->where("$c.saldo_actual", '>', 0);
+                } elseif ($ctx['estado'] === 'cancelados') {
+                    $base->where("$c.saldo_actual", '<=', 0);
+                }
+
+                $select = [];
+                $columnas = [];
+                $excel = [];
+
+                // Con "todas las sucursales" hace falta saber de cuál es cada cliente
+                if ($todas) {
+                    $select[] = DB::raw("$sNom as sucursal");
+                    $columnas[] = ['key' => 'sucursal', 'label' => 'Sucursal', 'tipo' => 'text'];
+                    $excel[] = 'sucursal';
+                }
+
+                $select = array_merge($select, [
+                    "$c.codigo as codigo",
+                    "$c.nombre as cliente",
+                    "$c.telefono as telefono",
+                    "$c.direccion as direccion",
+                    "$c.casa as casa",
+                    DB::raw("CASE $c.casa_lado WHEN 'izquierda' THEN 'Izquierda' WHEN 'derecha' THEN 'Derecha' ELSE NULL END as lado"),
+                    "$c.saldo_actual as saldo",
+                ]);
+                $columnas = array_merge($columnas, [
+                    ['key' => 'codigo', 'label' => 'Código', 'tipo' => 'text'],
+                    ['key' => 'cliente', 'label' => 'Cliente', 'tipo' => 'text'],
+                    ['key' => 'telefono', 'label' => 'Teléfono', 'tipo' => 'text'],
+                    ['key' => 'direccion', 'label' => 'Dirección', 'tipo' => 'text'],
+                    ['key' => 'casa', 'label' => 'Casa', 'tipo' => 'text'],
+                    ['key' => 'lado', 'label' => 'Lado', 'tipo' => 'text'],
+                    ['key' => 'saldo', 'label' => 'Saldo', 'tipo' => 'money'],
+                ]);
+                $excel = array_merge($excel, ['codigo', 'cliente', 'telefono', 'direccion', 'saldo']);
+
+                $orden = $todas ? [["$s.nombre", 'asc']] : [];
+                $orden[] = ["$c.nombre", 'asc'];
+                $orden[] = ["$c.id", 'asc'];
+
+                return [
+                    'base' => $base,
+                    'select' => $select,
+                    'orden' => $orden,
+                    'columnas' => $columnas,
+                    'excel' => $excel,
+                    'excel_max' => ['direccion' => 70], // solo en el Excel, para que la hoja imprima legible
+                    'totales' => [
+                        'Clientes' => ['COUNT(*)', 'num'],
+                        'Activos (con deuda)' => ["COALESCE(SUM(CASE WHEN $c.saldo_actual > 0 THEN 1 ELSE 0 END),0)", 'num'],
+                        'Cancelados' => ["COALESCE(SUM(CASE WHEN $c.saldo_actual <= 0 THEN 1 ELSE 0 END),0)", 'num'],
+                        'Total adeudado' => ["COALESCE(SUM(CASE WHEN $c.saldo_actual > 0 THEN $c.saldo_actual ELSE 0 END),0)", 'money'],
                     ],
                 ];
             case 'inventario':
@@ -695,8 +855,8 @@ class ReporteController extends Controller
 
         $hoy = now();
         $filas = $clientes
-            ->filter(fn ($cli) => $referencias->has($cli->id))
-            ->map(fn ($cli) => (object) [
+            ->filter(fn($cli) => $referencias->has($cli->id))
+            ->map(fn($cli) => (object) [
                 'codigo' => $cli->codigo,
                 'cliente' => $cli->nombre,
                 'telefono' => $cli->telefono,
@@ -713,6 +873,35 @@ class ReporteController extends Controller
         ];
 
         return ['filas' => $filas, 'totales' => $totales];
+    }
+
+    /**
+     * Visitas "No abonó" que quedaron guardadas dentro de reportes de ruta ya exportados.
+     * Sirve para saber a qué ruta pertenecían cuando sus filas de ruta ya se borraron.
+     * @return array<int, string> [operacion_id => nombre de la ruta]
+     */
+    private function visitasEnReportesRuta(array $ctx): array
+    {
+        $reportes = ReporteRuta::todasLasSucursales()
+            ->setEagerLoads([])
+            ->when($ctx['sel'] !== 'todas', fn($q) => $q->where('reportes_ruta.sucursal_id', (int) $ctx['sel']))
+            // Una visita se exporta siempre después de hacerse: sirve el mismo "desde"
+            ->when($ctx['desde'], fn($q) => $q->where('generado_en', '>=', $ctx['desde'] . ' 00:00:00'))
+            ->get(['reportes_ruta.id', 'reportes_ruta.ruta_id', 'reportes_ruta.nombre_ruta', 'reportes_ruta.datos']);
+
+        $mapa = [];
+        foreach ($reportes as $reporte) {
+            $nombre = $reporte->nombre_ruta ?? ('Ruta #' . $reporte->ruta_id);
+            foreach (($reporte->datos ?? []) as $d) {
+                foreach (($d['operaciones'] ?? []) as $op) {
+                    if (!empty($op['id'])) {
+                        $mapa[(int) $op['id']] = $nombre;
+                    }
+                }
+            }
+        }
+
+        return $mapa;
     }
     private function consultaRutas(array $ctx)
     {
