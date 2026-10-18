@@ -20,6 +20,7 @@ use App\Http\Controllers\TraspasoController;
 use App\Http\Controllers\GenerarPdfController;
 use App\Http\Controllers\ApartadoController;
 use App\Http\Controllers\AjusteMontoController;
+use App\Http\Controllers\ReservaController;
 
 Route::get('/', function () {
     /** @disregard P1013 */
@@ -147,6 +148,12 @@ Route::middleware('auth')->group(function () {
             Route::post('/compras/{compra}/pagos', [CompraController::class, 'registrarPago'])->name('compras.pagos.store');
             Route::put('/compras/proveedores/{proveedor}', [CompraController::class, 'actualizarProveedor'])->name('compras.proveedores.update');
             Route::delete('/compras/proveedores/{proveedor}', [CompraController::class, 'eliminarProveedor'])->name('compras.proveedores.destroy');
+
+                       // Reservas (agenda de citas). Solo superadmin; el controlador además rechaza las sucursales que no son Guana.
+            Route::get('/reservas', [ReservaController::class, 'index'])->name('reservas.index');
+            Route::post('/reservas', [ReservaController::class, 'store'])->name('reservas.store');
+            Route::put('/reservas/{reserva}', [ReservaController::class, 'update'])->whereNumber('reserva')->name('reservas.update');
+            Route::post('/reservas/{reserva}/estado', [ReservaController::class, 'cambiarEstado'])->whereNumber('reserva')->name('reservas.estado');
 
             $tiposReporte = 'ventas|abonos|gastos|compras|inventario|rutas|cancelados|atrasados|sin_abono|clientes';
             Route::get('/reportes', [ReporteController::class, 'index'])->name('reportes.index');

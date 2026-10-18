@@ -854,6 +854,17 @@
                 Apartados
                 <span class="badge-contador" id="badge-apartados"></span>
             </a>
+
+                        @if (auth()->user()->es_superadmin && $esGuana)
+                <a href="{{ route('reservas.index') }}" class="{{ request()->routeIs('reservas.*') ? 'activo' : '' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                    </svg>
+                    Reservas
+                </a>
+            @endif
             <a href="{{ route('traspaso.index') }}" class="{{ request()->routeIs('traspaso.*') ? 'activo' : '' }}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
                     stroke-linejoin="round">
@@ -1058,6 +1069,16 @@
                 Apartados
                 <span class="badge-contador" id="badge-apartados-movil"></span>
             </a>
+                        @if (auth()->user()->es_superadmin && $esGuana)
+                <a href="{{ route('reservas.index') }}" class="{{ request()->routeIs('reservas.*') ? 'activo' : '' }}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                    </svg>
+                    Reservas
+                </a>
+            @endif
             <a href="{{ route('rutas.index') }}" class="{{ request()->routeIs('rutas.*') ? 'activo' : '' }}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
                     stroke-linecap="round" stroke-linejoin="round">
