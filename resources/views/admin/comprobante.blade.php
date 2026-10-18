@@ -396,7 +396,8 @@
                     <th>Cuenta</th>
                     <th class="monto">Debía antes</th>
                     <th class="monto">Movimiento</th>
-                    <th class="monto">Debe ahora</th>
+                                       <th class="monto">Debe ahora</th>
+                    @if ($paraPdf)<th class="monto">Días de atraso</th>@endif
                 </tr>
             </thead>
             <tbody>
@@ -409,7 +410,8 @@
                         </td>
                         <td class="monto">{{ $dinero($fila['antes']) }}</td>
                         <td class="monto">{{ $movimiento($fila['mov']) }}</td>
-                        <td class="monto">{{ $dinero($fila['despues']) }}</td>
+                                               <td class="monto">{{ $dinero($fila['despues']) }}</td>
+                        @if ($paraPdf)<td class="monto">{{ !empty($fila['atraso']) ? $fila['atraso'] . ' días' : '—' }}</td>@endif
                     </tr>
                 @endforeach
             </tbody>
@@ -420,8 +422,9 @@
                     <td class="monto">{{ $movimiento($cuentas['totales']['mov']) }}</td>
                     <td class="monto">
                         {{ $dinero($cuentas['totales']['despues']) }}
-                        @if ($cuentas['totales']['despues'] < 0) <span class="tenue">(a favor)</span> @endif
+                                             @if ($cuentas['totales']['despues'] < 0) <span class="tenue">(a favor)</span> @endif
                     </td>
+                    @if ($paraPdf)<td class="monto"></td>@endif
                 </tr>
             </tfoot>
         </table>

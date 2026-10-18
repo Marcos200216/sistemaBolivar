@@ -172,8 +172,17 @@ class ComprobantePdfService
             $sumAntes += $antes;
             $sumDespues += $despues;
 
-            $fecha = $f->fecha ?? $f->operacion?->fecha ?? $f->operacion?->created_at ?? $f->created_at;
+                      $fecha = $f->fecha ?? $f->operacion?->fecha ?? $f->operacion?->created_at ?? $f->created_at;
             $numero = $f->operacion_id ? $f->operacion?->numero : $f->factura_id_legacy;
+
+            // Días de atraso al momento de esta visita: desde la fecha de la factura.
+            // Solo si todavía debe y lleva 30 días o más.
+            $referencia = $operacion->fecha ?? $operacion->created_at;
+            $atraso = null;
+                        if ($f->operacion_id !== null && $despues > 0 && $fecha && $referencia) {
+                $dias = (int) $fecha->copy()->startOfDay()->diffInDays($referencia->copy()->startOfDay());
+                $atraso = $dias >= 30 ? $dias : null;
+            }
 
             $notaCreada = $f->operacion?->tipo === 'traspaso' ? 'traspaso de cuenta' : 'compra de esta visita';
             $filas[] = [
@@ -182,8 +191,9 @@ class ComprobantePdfService
                 'nota' => $creada ? $notaCreada : null,
                 'antes' => $m($antes),
                 'mov' => $m($despues - $antes),
-                'despues' => $m($despues),
+                                'despues' => $m($despues),
                 'resaltar' => $abonadoEsta > 0,
+                'atraso' => $atraso,
             ];
         }
 
