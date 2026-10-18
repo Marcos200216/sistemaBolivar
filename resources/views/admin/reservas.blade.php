@@ -90,6 +90,8 @@
             .modal-footer { flex-direction: column-reverse; }
             .modal-footer .btn { width: 100%; }
         }
+
+                #paso-cliente .campo { margin-bottom: 18px; }
     </style>
 @endpush
 
