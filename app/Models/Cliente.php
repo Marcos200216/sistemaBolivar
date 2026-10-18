@@ -10,7 +10,7 @@ class Cliente extends Model
 {
     use BelongsToSucursal;
 
-    protected $fillable = [
+        protected $fillable = [
         'sucursal_id',
         'zona_id',
         'codigo',
@@ -18,6 +18,8 @@ class Cliente extends Model
         'telefono',
         'correo',
         'direccion',
+        'casa',
+        'casa_lado',
         'maximocredito',
         'saldo_actual',
         'genero',

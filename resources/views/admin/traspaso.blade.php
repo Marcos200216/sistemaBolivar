@@ -89,6 +89,14 @@
         .fila-2 { grid-template-columns: 1fr; }
         .tarjeta { max-width: 100%; }
     }
+
+        .fila-casa { display: flex; gap: 8px; align-items: center; }
+    .fila-casa input[type="text"] { flex: 1; min-width: 0; }
+    .lado-botones { display: flex; gap: 6px; flex-shrink: 0; }
+    .btn-lado { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; color: var(--azul-medio); cursor: pointer; padding: 0; }
+    .btn-lado svg { width: 22px; height: 22px; fill: none; }
+    .btn-lado.activo { background: #EAF1FD; border-color: var(--azul-medio); }
+    .btn-lado.activo svg { fill: currentColor; }
 </style>
 @endpush
 
@@ -181,6 +189,22 @@
             </div>
             <div class="campo"><label>Correo</label><input type="email" id="nc-correo"></div>
             <div class="campo"><label>Dirección</label><input type="text" id="nc-direccion"></div>
+                        <div class="campo">
+                <label>Casa</label>
+                <div class="fila-casa">
+                    <input type="text" id="nc-casa" maxlength="255" placeholder="Ej. casa color café">
+                    <input type="hidden" id="nc-casa-lado" value="">
+                    <div class="lado-botones">
+                        <button type="button" class="btn-lado" id="nc-lado-izquierda" onclick="elegirLadoNuevo('izquierda')" aria-label="Casa a la izquierda" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 12 10 5v4h11v6H10v4Z" /></svg>
+                        </button>
+                        <button type="button" class="btn-lado" id="nc-lado-derecha" onclick="elegirLadoNuevo('derecha')" aria-label="Casa a la derecha" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M21 12 14 5v4H3v6h11v4Z" /></svg>
+                        </button>
+                    </div>
+                </div>
+                <small>Flecha: de qué lado de la calle queda la casa. Tocá otra vez para quitarla.</small>
+            </div>
             <div class="campo"><label>Máximo de crédito</label><input type="number" step="0.01" id="nc-maximocredito"></div>
             <div class="campo">
                 <label>Género</label>
@@ -428,6 +452,19 @@
         }
     });
 
+        function pintarLadoNuevo(lado) {
+        $('nc-casa-lado').value = lado || '';
+        ['izquierda', 'derecha'].forEach(l => {
+            const b = $('nc-lado-' + l);
+            b.classList.toggle('activo', l === lado);
+            b.setAttribute('aria-pressed', l === lado ? 'true' : 'false');
+        });
+    }
+
+    function elegirLadoNuevo(lado) {
+        pintarLadoNuevo($('nc-casa-lado').value === lado ? '' : lado);
+    }
+
     function abrirFormularioClienteNuevo() {
         $('paso-buscar-destino').style.display = 'none';
         $('form-cliente-nuevo').style.display = 'block';
@@ -438,6 +475,8 @@
         $('nc-codigo').value = '';
         $('nc-correo').value = '';
         $('nc-direccion').value = '';
+                $('nc-casa').value = '';
+        pintarLadoNuevo('');
         $('nc-maximocredito').value = '';
         $('nc-genero').value = '';
 
@@ -539,6 +578,8 @@
         fd.append('codigo', $('nc-codigo').value.trim());
         fd.append('correo', $('nc-correo').value.trim());
         fd.append('direccion', $('nc-direccion').value.trim());
+                fd.append('casa', $('nc-casa').value.trim());
+        fd.append('casa_lado', $('nc-casa-lado').value);
         fd.append('sucursal_id', SUCURSAL_ACTUAL);
         fd.append('maximocredito', $('nc-maximocredito').value || 0);
         fd.append('genero', $('nc-genero').value);

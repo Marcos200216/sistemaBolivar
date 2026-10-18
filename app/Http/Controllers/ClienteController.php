@@ -108,6 +108,8 @@ public function update(Request $request, Cliente $cliente)
         'telefono' => 'nullable|string|max:30',
         'correo' => 'nullable|email|max:255',
         'direccion' => 'nullable|string|max:500',
+        'casa' => 'nullable|string|max:255',
+        'casa_lado' => 'nullable|in:izquierda,derecha',
         'maximocredito' => 'nullable|numeric|min:0',
         'genero' => 'nullable|in:F,M',
         'sucursal_id' => 'required|exists:sucursales,id',
@@ -154,4 +156,20 @@ public function guardarUbicacion(Request $request, Cliente $cliente)
 
     return response()->json(['ok' => true, 'mensaje' => 'Ubicación guardada.']);
 }
+
+public function guardarCasa(Request $request, Cliente $cliente)
+{
+    $datos = $request->validate([
+        'casa' => 'nullable|string|max:255',
+        'casa_lado' => 'nullable|in:izquierda,derecha',
+    ]);
+
+    $cliente->update([
+        'casa' => $datos['casa'] ?? null,
+        'casa_lado' => $datos['casa_lado'] ?? null,
+    ]);
+
+    return response()->json(['ok' => true, 'mensaje' => 'Casa guardada.']);
+}
+
 }

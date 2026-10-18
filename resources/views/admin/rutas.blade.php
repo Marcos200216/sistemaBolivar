@@ -818,6 +818,16 @@
                 font-size: 11.5px;
             }
         }
+
+                .casa-direccion { font-size: 14px; background: #f7f9fc; border-radius: 8px; padding: 10px 12px; overflow-wrap: anywhere; }
+        .casa-direccion.vacia { color: var(--texto-tenue); }
+        .fila-casa { display: flex; gap: 8px; align-items: center; }
+        .fila-casa input[type="text"] { flex: 1; min-width: 0; }
+        .lado-botones { display: flex; gap: 6px; flex-shrink: 0; }
+        .btn-lado { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; color: var(--azul-medio); cursor: pointer; padding: 0; }
+        .btn-lado svg { width: 22px; height: 22px; fill: none; }
+        .btn-lado.activo { background: #EAF1FD; border-color: var(--azul-medio); }
+        .btn-lado.activo svg { fill: currentColor; }
     </style>
 @endpush
 
@@ -1050,6 +1060,46 @@
         </div>
     </div>
 
+        {{-- ===================== MODAL: casa del cliente (ojo) ===================== --}}
+    <div class="modal-overlay" id="modal-casa">
+        <div class="modal-caja">
+            <div class="modal-header">
+                <div>
+                    <h2>Casa del cliente</h2>
+                    <p id="casa-nombre"></p>
+                </div>
+                <button class="modal-cerrar" onclick="cerrarModal('modal-casa')" aria-label="Cerrar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-cuerpo">
+                <div class="campo">
+                    <label>Dirección</label>
+                    <div class="casa-direccion" id="casa-direccion"></div>
+                </div>
+                <div class="campo">
+                    <label>Casa</label>
+                    <div class="fila-casa">
+                        <input type="text" id="casa-texto" maxlength="255" placeholder="Ej. casa color café">
+                        <div class="lado-botones">
+                            <button type="button" class="btn-lado" id="lado-izquierda" onclick="elegirLadoCasa('izquierda')" aria-label="Casa a la izquierda" aria-pressed="false">
+                                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 12 10 5v4h11v6H10v4Z" /></svg>
+                            </button>
+                            <button type="button" class="btn-lado" id="lado-derecha" onclick="elegirLadoCasa('derecha')" aria-label="Casa a la derecha" aria-pressed="false">
+                                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M21 12 14 5v4H3v6h11v4Z" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secundario" onclick="cerrarModal('modal-casa')">Cancelar</button>
+                <button type="button" class="btn btn-primario" onclick="guardarCasa()">Guardar</button>
+            </div>
+        </div>
+    </div>
     {{-- ===================== MODAL: ubicación de un cliente (solo Guana) ===================== --}}
     @if ($esGuanaRutas)
         <div class="modal-overlay" id="modal-ubicacion">
@@ -1206,6 +1256,9 @@
                         <div class="nombre">${rc.estado === 'recobro' ? iconoAdvertencia() : ''} ${rc.cliente.nombre}</div>
                         <div class="saldo">${formatoColones(rc.cliente.saldo_actual)}${rc.estado === 'recobro' ? ' · Recobro' : ''}${rc.atrasado ? ' · <span class="badge badge-rojo" style="padding:1px 8px;">Atrasado</span>' : ''}</div>
                     </div>
+                    <button type="button" class="btn-icono" title="Casa del cliente" aria-label="Ver casa del cliente" onclick="event.stopPropagation(); abrirModalCasa(${rc.id})">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
                     <div class="flechas" onclick="event.stopPropagation()">
                         <button type="button" class="btn-icono" ${i === 0 ? 'disabled' : ''} onclick="moverCliente(${i}, -1)" aria-label="Subir">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
@@ -1950,6 +2003,79 @@
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token },
                 keepalive: true
             }).catch(() => {});
+        }
+
+                /* ==================== CASA DEL CLIENTE (ojo) ==================== */
+
+        let rutaClienteCasa = null;
+        let ladoCasaActual = '';
+
+        function abrirModalCasa(rutaClienteId) {
+            const rc = clientesActivos.find(x => x.id === rutaClienteId);
+            if (!rc) return;
+            rutaClienteCasa = rc;
+            const c = rc.cliente;
+
+            document.getElementById('casa-nombre').textContent = c.nombre;
+            const dir = (c.direccion ?? '').trim();
+            const cajaDir = document.getElementById('casa-direccion');
+            cajaDir.textContent = dir !== '' ? dir : 'Sin dirección registrada';
+            cajaDir.classList.toggle('vacia', dir === '');
+            document.getElementById('casa-texto').value = c.casa ?? '';
+            pintarLadoCasa(c.casa_lado ?? '');
+            abrirModal('modal-casa');
+        }
+
+        function pintarLadoCasa(lado) {
+            ladoCasaActual = lado || '';
+            ['izquierda', 'derecha'].forEach(l => {
+                const b = document.getElementById('lado-' + l);
+                b.classList.toggle('activo', l === ladoCasaActual);
+                b.setAttribute('aria-pressed', l === ladoCasaActual ? 'true' : 'false');
+            });
+        }
+
+        function elegirLadoCasa(lado) {
+            pintarLadoCasa(ladoCasaActual === lado ? '' : lado);
+        }
+
+        async function guardarCasa() {
+            if (!rutaClienteCasa) return;
+            const id = rutaClienteCasa.cliente.id;
+            const casa = document.getElementById('casa-texto').value.trim();
+            const lado = ladoCasaActual === '' ? null : ladoCasaActual;
+
+            const resp = await fetch(`/clientes/${id}/casa`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                    'X-HTTP-Method-Override': 'PUT'
+                },
+                body: JSON.stringify({ casa: casa === '' ? null : casa, casa_lado: lado })
+            });
+
+            if (!resp.ok) {
+                let msg = 'No se pudo guardar.';
+                try {
+                    const d = await resp.json();
+                    msg = d.mensaje ?? (Object.values(d.errors ?? {}).flat().join('\n') || msg);
+                } catch (e) {}
+                Swal.fire('Error', msg, 'error');
+                return;
+            }
+
+            // Actualiza lo que ya está cargado en pantalla, sin recargar la ruta
+            [...clientesActivos, ...(rutaActual?.finalizados ?? [])].forEach(rc => {
+                if (rc.cliente.id === id) {
+                    rc.cliente.casa = casa === '' ? null : casa;
+                    rc.cliente.casa_lado = lado;
+                }
+            });
+
+            cerrarModal('modal-casa');
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Casa guardada', showConfirmButton: false, timer: 2000 });
         }
         /* ==================== CLIENTES FINALIZADOS ==================== */
 

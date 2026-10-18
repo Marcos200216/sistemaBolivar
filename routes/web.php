@@ -46,6 +46,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/clientes', [ClienteController::class, 'store'])->name('clientes.store');
         Route::put('/clientes/{cliente}', [ClienteController::class, 'update'])->name('clientes.update');
         Route::delete('/clientes/{cliente}', [ClienteController::class, 'destroy'])->name('clientes.destroy');
+        Route::put('/clientes/{cliente}/casa', [ClienteController::class, 'guardarCasa'])->name('clientes.casa');
 
         // La ruta se conserva aunque ya no esté en el menú (Layout #3).
         Route::get('/cuentas-por-cobrar', [CuentaPorCobrarController::class, 'index'])

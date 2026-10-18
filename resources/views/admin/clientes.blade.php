@@ -3,7 +3,7 @@
 @section('titulo', 'Clientes')
 
 @push('estilos')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
         .barra-clientes {
             display: flex;
@@ -551,14 +551,108 @@
             }
         }
 
-        .bloque-ubicacion { border: 1px solid var(--borde); border-radius: 10px; padding: 12px; margin-bottom: 13px; background: #FAFAF8; }
-.bloque-ubicacion > label { font-size: 12.5px; font-weight: 600; color: var(--texto-tenue); display: block; margin-bottom: 8px; }
-.ubicacion-botones { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-.ubicacion-botones button { padding: 8px 12px; font-size: 13px; }
-.ubicacion-link { display: flex; gap: 8px; margin-bottom: 8px; }
-.ubicacion-link input { flex: 1; min-width: 0; padding: 9px 10px; border: 1px solid var(--borde); border-radius: 8px; font-size: 16px; font-family: inherit; }
-#mapa-cliente { height: 220px; border-radius: 8px; border: 1px solid var(--borde); z-index: 0; }
-#ubicacion-estado { font-size: 12px; color: var(--texto-tenue); margin-top: 6px; }
+        .bloque-ubicacion {
+            border: 1px solid var(--borde);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 13px;
+            background: #FAFAF8;
+        }
+
+        .bloque-ubicacion>label {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--texto-tenue);
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .ubicacion-botones {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .ubicacion-botones button {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .ubicacion-link {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .ubicacion-link input {
+            flex: 1;
+            min-width: 0;
+            padding: 9px 10px;
+            border: 1px solid var(--borde);
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        #mapa-cliente {
+            height: 220px;
+            border-radius: 8px;
+            border: 1px solid var(--borde);
+            z-index: 0;
+        }
+
+        #ubicacion-estado {
+            font-size: 12px;
+            color: var(--texto-tenue);
+            margin-top: 6px;
+        }
+
+        .fila-casa {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .fila-casa input[type="text"] {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .lado-botones {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .btn-lado {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border: 1px solid var(--borde);
+            border-radius: 8px;
+            background: #fff;
+            color: var(--azul-medio);
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .btn-lado svg {
+            width: 22px;
+            height: 22px;
+            fill: none;
+        }
+
+        .btn-lado.activo {
+            background: #EAF1FD;
+            border-color: var(--azul-medio);
+        }
+
+        .btn-lado.activo svg {
+            fill: currentColor;
+        }
     </style>
 @endpush
 
@@ -636,10 +730,34 @@
                 <div class="campo">
                     <label>Código</label>
                     <input type="text" name="codigo" id="campo-codigo">
-                   <small id="ayuda-codigo">Se llena solo con los últimos 4 dígitos del teléfono. Podés cambiarlo.</small>
+                    <small id="ayuda-codigo">Se llena solo con los últimos 4 dígitos del teléfono. Podés cambiarlo.</small>
                 </div>
                 <div class="campo"><label>Correo</label><input type="email" name="correo" id="campo-correo"></div>
                 <div class="campo"><label>Dirección</label><input type="text" name="direccion" id="campo-direccion">
+                </div>
+                <div class="campo">
+                    <label>Casa</label>
+                    <div class="fila-casa">
+                        <input type="text" name="casa" id="campo-casa" maxlength="255"
+                            placeholder="Ej. casa color café">
+                        <input type="hidden" name="casa_lado" id="campo-casa-lado" value="">
+                        <div class="lado-botones">
+                            <button type="button" class="btn-lado" id="btn-lado-izquierda"
+                                onclick="elegirLado('izquierda')" aria-label="Casa a la izquierda" aria-pressed="false">
+                                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+                                    <path d="M3 12 10 5v4h11v6H10v4Z" />
+                                </svg>
+                            </button>
+                            <button type="button" class="btn-lado" id="btn-lado-derecha"
+                                onclick="elegirLado('derecha')" aria-label="Casa a la derecha" aria-pressed="false">
+                                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"
+                                    stroke-linejoin="round">
+                                    <path d="M21 12 14 5v4H3v6h11v4Z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <small>Flecha: de qué lado de la calle queda la casa. Tocá otra vez para quitarla.</small>
                 </div>
                 <div class="campo">
                     <label>Sucursal *</label>
@@ -659,23 +777,26 @@
                         <option value="M">M</option>
                     </select>
                 </div>
- 
-                <div class="bloque-ubicacion" id="bloque-ubicacion" style="display:none;">
-    <label>Ubicación del cliente</label>
-    <input type="hidden" name="latitud" id="campo-latitud">
-    <input type="hidden" name="longitud" id="campo-longitud">
 
-    <div class="ubicacion-botones">
-        <button type="button" class="btn-secundario" onclick="usarMiUbicacion()">Usar mi ubicación actual</button>
-        <button type="button" class="btn-secundario" onclick="limpiarUbicacion()">Quitar ubicación</button>
-    </div>
-    <div class="ubicacion-link">
-        <input type="text" id="ubicacion-link-input" placeholder="Pegá un link de Google Maps o 'lat, lng'">
-        <button type="button" class="btn-secundario" onclick="leerLinkUbicacion()">Usar</button>
-    </div>
-    <div id="mapa-cliente"></div>
-    <div id="ubicacion-estado">Tocá el mapa para poner el pin (se puede arrastrar).</div>
-</div>
+                <div class="bloque-ubicacion" id="bloque-ubicacion" style="display:none;">
+                    <label>Ubicación del cliente</label>
+                    <input type="hidden" name="latitud" id="campo-latitud">
+                    <input type="hidden" name="longitud" id="campo-longitud">
+
+                    <div class="ubicacion-botones">
+                        <button type="button" class="btn-secundario" onclick="usarMiUbicacion()">Usar mi ubicación
+                            actual</button>
+                        <button type="button" class="btn-secundario" onclick="limpiarUbicacion()">Quitar
+                            ubicación</button>
+                    </div>
+                    <div class="ubicacion-link">
+                        <input type="text" id="ubicacion-link-input"
+                            placeholder="Pegá un link de Google Maps o 'lat, lng'">
+                        <button type="button" class="btn-secundario" onclick="leerLinkUbicacion()">Usar</button>
+                    </div>
+                    <div id="mapa-cliente"></div>
+                    <div id="ubicacion-estado">Tocá el mapa para poner el pin (se puede arrastrar).</div>
+                </div>
                 <div class="modal-acciones">
                     <button type="button" class="btn-secundario" onclick="cerrarModalCliente()">Cancelar</button>
                     <button type="submit" class="btn-primario">Guardar</button>
@@ -686,7 +807,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
         let paginaActual = 1;
@@ -765,7 +886,7 @@
             <td>${c.correo ?? '—'}</td>
             <td><span class="insignia-credito">   ${Number(c.maximocredito) > 0 ? formatoColones(c.maximocredito) : 'Sin límite'}</span></td>
             <td class="acciones">
-                <button type="button" class="btn-icono btn-editar" title="Editar" onclick='abrirModalEditar(${JSON.stringify(c)})'>${iconoLapiz}</button>
+                <button type="button" class="btn-icono btn-editar" title="Editar" onclick='abrirModalEditar(${JSON.stringify(c).replace(/'/g, '&#39;')})'>${iconoLapiz}</button>
                 <button type="button" class="btn-icono btn-eliminar" title="Eliminar" onclick="confirmarEliminar(${c.id}, '${c.nombre.replace(/'/g, "\\'")}')">${iconoBasura}</button>
             </td>
         </tr>
@@ -794,7 +915,7 @@
                 ${c.correo ? `<div class="dato">${iconoCorreo}${c.correo}</div>` : ''}
             </div>
             <div class="fila-acciones">
-                <button type="button" class="btn-icono btn-editar" title="Editar" onclick='abrirModalEditar(${JSON.stringify(c)})'>${iconoLapiz}</button>
+                <button type="button" class="btn-icono btn-editar" title="Editar" onclick='abrirModalEditar(${JSON.stringify(c).replace(/'/g, '&#39;')})'>${iconoLapiz}</button>
                 <button type="button" class="btn-icono btn-eliminar" title="Eliminar" onclick="confirmarEliminar(${c.id}, '${c.nombre.replace(/'/g, "\\'")}')">${iconoBasura}</button>
             </div>
         </div>
@@ -860,76 +981,93 @@
         // últimos 4 dígitos del teléfono. Si lo edita, deja de autorrellenarse.
         // Si borra el código por completo, vuelve a autorrellenarse.
         let codigoManual = false;
-let telefonoOriginal = null; // null = cliente nuevo; texto = editando
-let codigoOriginal = '';
+        let telefonoOriginal = null; // null = cliente nuevo; texto = editando
+        let codigoOriginal = '';
 
-function ultimos4Digitos(telefono) {
-    const digitos = (telefono || '').replace(/\D/g, '');
-    return digitos.length >= 4 ? digitos.slice(-4) : '';
-}
-
-document.getElementById('campo-telefono').addEventListener('input', function() {
-    if (codigoManual) return;
-    const campoCodigo = document.getElementById('campo-codigo');
-
-    if (telefonoOriginal !== null) {
-        // Editando: si el teléfono vuelve a ser el original, vuelve el código original
-        if (this.value.trim() === telefonoOriginal.trim()) {
-            campoCodigo.value = codigoOriginal;
-            return;
+        function ultimos4Digitos(telefono) {
+            const digitos = (telefono || '').replace(/\D/g, '');
+            return digitos.length >= 4 ? digitos.slice(-4) : '';
         }
-        // Mientras tenga menos de 4 dígitos no se borra el código existente
-        const nuevo = ultimos4Digitos(this.value);
-        if (nuevo !== '') campoCodigo.value = nuevo;
-        return;
-    }
 
-    campoCodigo.value = ultimos4Digitos(this.value);
-});
+        document.getElementById('campo-telefono').addEventListener('input', function() {
+            if (codigoManual) return;
+            const campoCodigo = document.getElementById('campo-codigo');
 
-document.getElementById('campo-codigo').addEventListener('input', function() {
-    codigoManual = this.value.trim() !== '';
-    if (!codigoManual) {
-        this.value = ultimos4Digitos(document.getElementById('campo-telefono').value);
-    }
-});
+            if (telefonoOriginal !== null) {
+                // Editando: si el teléfono vuelve a ser el original, vuelve el código original
+                if (this.value.trim() === telefonoOriginal.trim()) {
+                    campoCodigo.value = codigoOriginal;
+                    return;
+                }
+                // Mientras tenga menos de 4 dígitos no se borra el código existente
+                const nuevo = ultimos4Digitos(this.value);
+                if (nuevo !== '') campoCodigo.value = nuevo;
+                return;
+            }
 
+            campoCodigo.value = ultimos4Digitos(this.value);
+        });
+
+        document.getElementById('campo-codigo').addEventListener('input', function() {
+            codigoManual = this.value.trim() !== '';
+            if (!codigoManual) {
+                this.value = ultimos4Digitos(document.getElementById('campo-telefono').value);
+            }
+        });
+
+
+        function pintarLado(lado) {
+            document.getElementById('campo-casa-lado').value = lado || '';
+            ['izquierda', 'derecha'].forEach(l => {
+                const b = document.getElementById('btn-lado-' + l);
+                b.classList.toggle('activo', l === lado);
+                b.setAttribute('aria-pressed', l === lado ? 'true' : 'false');
+            });
+        }
+
+        function elegirLado(lado) {
+            const actual = document.getElementById('campo-casa-lado').value;
+            pintarLado(actual === lado ? '' : lado);
+        }
         // ===== Modal crear/editar =====
         function abrirModalCrear() {
-    document.getElementById('form-cliente').reset();
-    codigoManual = false;
-    telefonoOriginal = null;
-codigoOriginal = '';
-    document.getElementById('campo-sucursal').value = '{{ session('sucursal_id') }}';
-    document.getElementById('form-cliente-metodo').value = 'POST';
-    document.getElementById('form-cliente').dataset.url = '{{ route('clientes.store') }}';
-    document.getElementById('modal-cliente-titulo').textContent = 'Nuevo cliente';
-    document.getElementById('modal-cliente').classList.add('abierto');
-    cargarUbicacionEnModal(null);   // <-- NUEVA
-    document.getElementById('campo-nombre').focus();
-}
+            document.getElementById('form-cliente').reset();
+            pintarLado('');
+            codigoManual = false;
+            telefonoOriginal = null;
+            codigoOriginal = '';
+            document.getElementById('campo-sucursal').value = '{{ session('sucursal_id') }}';
+            document.getElementById('form-cliente-metodo').value = 'POST';
+            document.getElementById('form-cliente').dataset.url = '{{ route('clientes.store') }}';
+            document.getElementById('modal-cliente-titulo').textContent = 'Nuevo cliente';
+            document.getElementById('modal-cliente').classList.add('abierto');
+            cargarUbicacionEnModal(null); // <-- NUEVA
+            document.getElementById('campo-nombre').focus();
+        }
 
         function abrirModalEditar(cliente) {
-    document.getElementById('campo-nombre').value = cliente.nombre ?? '';
-    document.getElementById('campo-telefono').value = cliente.telefono ?? '';
-    document.getElementById('campo-codigo').value = cliente.codigo ?? '';
-    document.getElementById('campo-correo').value = cliente.correo ?? '';
-    document.getElementById('campo-direccion').value = cliente.direccion ?? '';
-    document.getElementById('campo-maximocredito').value = cliente.maximocredito ?? '';
-    document.getElementById('campo-genero').value = cliente.genero ?? '';
-    document.getElementById('campo-sucursal').value = cliente.sucursal_id;
+            document.getElementById('campo-nombre').value = cliente.nombre ?? '';
+            document.getElementById('campo-telefono').value = cliente.telefono ?? '';
+            document.getElementById('campo-codigo').value = cliente.codigo ?? '';
+            document.getElementById('campo-correo').value = cliente.correo ?? '';
+            document.getElementById('campo-direccion').value = cliente.direccion ?? '';
+            document.getElementById('campo-casa').value = cliente.casa ?? '';
+            pintarLado(cliente.casa_lado ?? '');
+            document.getElementById('campo-maximocredito').value = cliente.maximocredito ?? '';
+            document.getElementById('campo-genero').value = cliente.genero ?? '';
+            document.getElementById('campo-sucursal').value = cliente.sucursal_id;
 
-    // Si cambia el teléfono, el código se recalcula; si no, queda el que tenía.
-codigoManual = false;
-telefonoOriginal = cliente.telefono ?? '';
-codigoOriginal = cliente.codigo ?? '';
+            // Si cambia el teléfono, el código se recalcula; si no, queda el que tenía.
+            codigoManual = false;
+            telefonoOriginal = cliente.telefono ?? '';
+            codigoOriginal = cliente.codigo ?? '';
 
-    document.getElementById('form-cliente-metodo').value = 'PUT';
-    document.getElementById('form-cliente').dataset.url = `/clientes/${cliente.id}`;
-    document.getElementById('modal-cliente-titulo').textContent = 'Editar cliente';
-    document.getElementById('modal-cliente').classList.add('abierto');
-    cargarUbicacionEnModal(cliente);   // <-- NUEVA
-}
+            document.getElementById('form-cliente-metodo').value = 'PUT';
+            document.getElementById('form-cliente').dataset.url = `/clientes/${cliente.id}`;
+            document.getElementById('modal-cliente-titulo').textContent = 'Editar cliente';
+            document.getElementById('modal-cliente').classList.add('abierto');
+            cargarUbicacionEnModal(cliente); // <-- NUEVA
+        }
 
         function cerrarModalCliente() {
             document.getElementById('modal-cliente').classList.remove('abierto');
@@ -965,11 +1103,15 @@ codigoOriginal = cliente.codigo ?? '';
                     cargarClientes();
                 })
                 .catch(err => {
-    const mensajes = err.errors
-        ? Object.values(err.errors).flat().join('\n')
-        : (err.message || 'Ocurrió un error inesperado. Intentá de nuevo.');
-    Swal.fire({ icon: 'error', title: 'Revisá los datos', text: mensajes });
-});
+                    const mensajes = err.errors ?
+                        Object.values(err.errors).flat().join('\n') :
+                        (err.message || 'Ocurrió un error inesperado. Intentá de nuevo.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Revisá los datos',
+                        text: mensajes
+                    });
+                });
         });
 
         // ===== Eliminar =====
@@ -1027,114 +1169,134 @@ codigoOriginal = cliente.codigo ?? '';
 
 
         // ===== Ubicación (solo sucursales mayoristas) =====
-const CANAL_SUCURSAL = @json($sucursales->pluck('canal', 'id'));
-const CENTRO_DEFECTO = [10.6350, -85.4377]; // Liberia
-let mapa = null, marcador = null;
+        const CANAL_SUCURSAL = @json($sucursales->pluck('canal', 'id'));
+        const CENTRO_DEFECTO = [10.6350, -85.4377]; // Liberia
+        let mapa = null,
+            marcador = null;
 
-function esSucursalMayorista() {
-    return CANAL_SUCURSAL[document.getElementById('campo-sucursal').value] === 'mayorista';
-}
-
-function actualizarBloqueUbicacion() {
-    const visible = esSucursalMayorista();
-    document.getElementById('bloque-ubicacion').style.display = visible ? '' : 'none';
-    // Un input deshabilitado no viaja en el FormData: si no es mayorista, no se envía ubicación
-    document.getElementById('campo-latitud').disabled = !visible;
-    document.getElementById('campo-longitud').disabled = !visible;
-    if (visible) iniciarMapa();
-}
-
-function iniciarMapa() {
-    if (!mapa) {
-        mapa = L.map('mapa-cliente').setView(CENTRO_DEFECTO, 13);
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19, attribution: '© OpenStreetMap'
-        }).addTo(mapa);
-        mapa.on('click', e => fijarUbicacion(e.latlng.lat, e.latlng.lng, false));
-    }
-    // El mapa se crea dentro de un modal recién abierto: hay que recalcular su tamaño
-    setTimeout(() => {
-        mapa.invalidateSize();
-        const lat = parseFloat(document.getElementById('campo-latitud').value);
-        const lng = parseFloat(document.getElementById('campo-longitud').value);
-        if (!isNaN(lat) && !isNaN(lng)) mapa.setView([lat, lng], 16);
-        else mapa.setView(CENTRO_DEFECTO, 13);
-    }, 150);
-}
-
-function fijarUbicacion(lat, lng, centrar = true) {
-    lat = Number(lat.toFixed(7)); lng = Number(lng.toFixed(7));
-    document.getElementById('campo-latitud').value = lat;
-    document.getElementById('campo-longitud').value = lng;
-
-    if (!marcador) {
-        marcador = L.marker([lat, lng], { draggable: true }).addTo(mapa);
-        marcador.on('dragend', () => {
-            const p = marcador.getLatLng();
-            fijarUbicacion(p.lat, p.lng, false);
-        });
-    } else {
-        marcador.setLatLng([lat, lng]);
-    }
-    if (centrar) mapa.setView([lat, lng], 16);
-    document.getElementById('ubicacion-estado').textContent = `Ubicación guardada en el formulario: ${lat}, ${lng}`;
-}
-
-function limpiarUbicacion() {
-    document.getElementById('campo-latitud').value = '';
-    document.getElementById('campo-longitud').value = '';
-    document.getElementById('ubicacion-link-input').value = '';
-    if (marcador && mapa) { mapa.removeLayer(marcador); marcador = null; }
-    document.getElementById('ubicacion-estado').textContent = 'Sin ubicación. Tocá el mapa para poner el pin.';
-}
-
-function usarMiUbicacion() {
-    if (!navigator.geolocation) {
-        Swal.fire('No disponible', 'Este navegador no permite obtener la ubicación.', 'info');
-        return;
-    }
-    navigator.geolocation.getCurrentPosition(
-        pos => fijarUbicacion(pos.coords.latitude, pos.coords.longitude),
-        () => Swal.fire('No se pudo obtener', 'Revisá que el navegador tenga permiso de ubicación (y que el sitio use https).', 'warning'),
-        { enableHighAccuracy: true, timeout: 15000 }
-    );
-}
-
-// Acepta links largos de Google Maps o texto "lat, lng"
-function leerLinkUbicacion() {
-    const texto = document.getElementById('ubicacion-link-input').value.trim();
-    const patrones = [
-        /@(-?\d+\.\d+),(-?\d+\.\d+)/,
-        /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
-        /[?&](?:q|ll|query)=(-?\d+\.\d+),(-?\d+\.\d+)/,
-        /^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/,
-    ];
-    for (const p of patrones) {
-        const m = texto.match(p);
-        if (m) {
-            const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
-            if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) { fijarUbicacion(lat, lng); return; }
+        function esSucursalMayorista() {
+            return CANAL_SUCURSAL[document.getElementById('campo-sucursal').value] === 'mayorista';
         }
-    }
-    Swal.fire('No pude leer el link',
-        'Los links cortos (maps.app.goo.gl) no traen coordenadas. Abrilo en el navegador y copiá la URL larga, o pegá "lat, lng".', 'info');
-}
 
-function cargarUbicacionEnModal(cliente) {
-    document.getElementById('ubicacion-link-input').value = '';
-    if (marcador && mapa) { mapa.removeLayer(marcador); marcador = null; }
-    document.getElementById('campo-latitud').value = cliente?.latitud ?? '';
-    document.getElementById('campo-longitud').value = cliente?.longitud ?? '';
-    document.getElementById('ubicacion-estado').textContent = 'Tocá el mapa para poner el pin (se puede arrastrar).';
+        function actualizarBloqueUbicacion() {
+            const visible = esSucursalMayorista();
+            document.getElementById('bloque-ubicacion').style.display = visible ? '' : 'none';
+            // Un input deshabilitado no viaja en el FormData: si no es mayorista, no se envía ubicación
+            document.getElementById('campo-latitud').disabled = !visible;
+            document.getElementById('campo-longitud').disabled = !visible;
+            if (visible) iniciarMapa();
+        }
 
-    actualizarBloqueUbicacion();
+        function iniciarMapa() {
+            if (!mapa) {
+                mapa = L.map('mapa-cliente').setView(CENTRO_DEFECTO, 13);
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(mapa);
+                mapa.on('click', e => fijarUbicacion(e.latlng.lat, e.latlng.lng, false));
+            }
+            // El mapa se crea dentro de un modal recién abierto: hay que recalcular su tamaño
+            setTimeout(() => {
+                mapa.invalidateSize();
+                const lat = parseFloat(document.getElementById('campo-latitud').value);
+                const lng = parseFloat(document.getElementById('campo-longitud').value);
+                if (!isNaN(lat) && !isNaN(lng)) mapa.setView([lat, lng], 16);
+                else mapa.setView(CENTRO_DEFECTO, 13);
+            }, 150);
+        }
 
-    if (cliente?.latitud != null && cliente?.longitud != null && mapa) {
-        // el marcador se pone tras iniciarMapa (que ya centró el mapa)
-        setTimeout(() => fijarUbicacion(Number(cliente.latitud), Number(cliente.longitud)), 200);
-    }
-}
+        function fijarUbicacion(lat, lng, centrar = true) {
+            lat = Number(lat.toFixed(7));
+            lng = Number(lng.toFixed(7));
+            document.getElementById('campo-latitud').value = lat;
+            document.getElementById('campo-longitud').value = lng;
 
-document.getElementById('campo-sucursal').addEventListener('change', actualizarBloqueUbicacion);
+            if (!marcador) {
+                marcador = L.marker([lat, lng], {
+                    draggable: true
+                }).addTo(mapa);
+                marcador.on('dragend', () => {
+                    const p = marcador.getLatLng();
+                    fijarUbicacion(p.lat, p.lng, false);
+                });
+            } else {
+                marcador.setLatLng([lat, lng]);
+            }
+            if (centrar) mapa.setView([lat, lng], 16);
+            document.getElementById('ubicacion-estado').textContent = `Ubicación guardada en el formulario: ${lat}, ${lng}`;
+        }
+
+        function limpiarUbicacion() {
+            document.getElementById('campo-latitud').value = '';
+            document.getElementById('campo-longitud').value = '';
+            document.getElementById('ubicacion-link-input').value = '';
+            if (marcador && mapa) {
+                mapa.removeLayer(marcador);
+                marcador = null;
+            }
+            document.getElementById('ubicacion-estado').textContent = 'Sin ubicación. Tocá el mapa para poner el pin.';
+        }
+
+        function usarMiUbicacion() {
+            if (!navigator.geolocation) {
+                Swal.fire('No disponible', 'Este navegador no permite obtener la ubicación.', 'info');
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                pos => fijarUbicacion(pos.coords.latitude, pos.coords.longitude),
+                () => Swal.fire('No se pudo obtener',
+                    'Revisá que el navegador tenga permiso de ubicación (y que el sitio use https).', 'warning'), {
+                    enableHighAccuracy: true,
+                    timeout: 15000
+                }
+            );
+        }
+
+        // Acepta links largos de Google Maps o texto "lat, lng"
+        function leerLinkUbicacion() {
+            const texto = document.getElementById('ubicacion-link-input').value.trim();
+            const patrones = [
+                /@(-?\d+\.\d+),(-?\d+\.\d+)/,
+                /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
+                /[?&](?:q|ll|query)=(-?\d+\.\d+),(-?\d+\.\d+)/,
+                /^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/,
+            ];
+            for (const p of patrones) {
+                const m = texto.match(p);
+                if (m) {
+                    const lat = parseFloat(m[1]),
+                        lng = parseFloat(m[2]);
+                    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+                        fijarUbicacion(lat, lng);
+                        return;
+                    }
+                }
+            }
+            Swal.fire('No pude leer el link',
+                'Los links cortos (maps.app.goo.gl) no traen coordenadas. Abrilo en el navegador y copiá la URL larga, o pegá "lat, lng".',
+                'info');
+        }
+
+        function cargarUbicacionEnModal(cliente) {
+            document.getElementById('ubicacion-link-input').value = '';
+            if (marcador && mapa) {
+                mapa.removeLayer(marcador);
+                marcador = null;
+            }
+            document.getElementById('campo-latitud').value = cliente?.latitud ?? '';
+            document.getElementById('campo-longitud').value = cliente?.longitud ?? '';
+            document.getElementById('ubicacion-estado').textContent =
+                'Tocá el mapa para poner el pin (se puede arrastrar).';
+
+            actualizarBloqueUbicacion();
+
+            if (cliente?.latitud != null && cliente?.longitud != null && mapa) {
+                // el marcador se pone tras iniciarMapa (que ya centró el mapa)
+                setTimeout(() => fijarUbicacion(Number(cliente.latitud), Number(cliente.longitud)), 200);
+            }
+        }
+
+        document.getElementById('campo-sucursal').addEventListener('change', actualizarBloqueUbicacion);
     </script>
 @endpush
