@@ -154,7 +154,10 @@ class ReporteController extends Controller
                     ];
                 }
             }
-            return Excel::download(new ReporteExport('Rutas', $headings, $rows, [], [8, 9]), $nombre);
+            return Excel::download(
+                new ReporteExport('Rutas', $headings, $rows, [], [8, 9], [], $this->encabezadoExcel($request, $ctx, $tipo)),
+                $nombre
+            );
         }
 
         if ($tipo === 'atrasados') {
@@ -194,7 +197,7 @@ class ReporteController extends Controller
             }
 
             return Excel::download(
-                new ReporteExport('Atrasados', $headings, $rows, $resumen, $money, $resumenMoney),
+                new ReporteExport('Atrasados', $headings, $rows, $resumen, $money, $resumenMoney, $this->encabezadoExcel($request, $ctx, $tipo)),
                 $nombre
             );
         }
@@ -222,7 +225,7 @@ class ReporteController extends Controller
             $filasExcel = $filasExcel->map($def['post']);
         }
 
-               $rows = $filasExcel
+        $rows = $filasExcel
             ->map(function ($fila) use ($colsExcel, $def) {
                 $out = [];
                 foreach ($colsExcel as $col) {
@@ -248,7 +251,15 @@ class ReporteController extends Controller
         }
 
         return Excel::download(
-            new ReporteExport(self::TIPOS[$tipo], $headings, $rows, $resumen, $money, $resumenMoney),
+            new ReporteExport(
+                self::TIPOS[$tipo],
+                $headings,
+                $rows,
+                $resumen,
+                $money,
+                $resumenMoney,
+                $this->encabezadoExcel($request, $ctx, $tipo)
+            ),
             $nombre
         );
     }
@@ -292,7 +303,7 @@ class ReporteController extends Controller
             ? $request->query('origen')
             : 'todas';
 
-                    $estado = in_array($request->query('estado'), ['activos', 'cancelados'], true)
+        $estado = in_array($request->query('estado'), ['activos', 'cancelados'], true)
             ? $request->query('estado')
             : 'todos';
 
@@ -330,6 +341,37 @@ class ReporteController extends Controller
             return 'Todas las sucursales';
         }
         return Sucursal::find((int) $ctx['sel'])?->nombre ?? ('Sucursal #' . $ctx['sel']);
+    }
+
+    /** Datos del encabezado que va arriba de cada Excel. */
+    private function encabezadoExcel(Request $request, array $ctx, string $tipo): array
+    {
+        $sucursal = $ctx['sel'] === 'todas' ? null : Sucursal::find((int) $ctx['sel']);
+
+        if ($sucursal === null) {
+            $logo = public_path('images/fondo.png');
+        } else {
+            $logo = public_path('images/' . ($sucursal->canal === 'mayorista' ? 'fondo_guana.png' : 'fondo_azur.png'));
+        }
+
+        $rango = null;
+        if ($ctx['desde'] && $ctx['hasta']) {
+            $rango = 'Del ' . Carbon::parse($ctx['desde'])->format('d/m/Y') . ' al ' . Carbon::parse($ctx['hasta'])->format('d/m/Y');
+        } elseif ($ctx['desde']) {
+            $rango = 'Desde el ' . Carbon::parse($ctx['desde'])->format('d/m/Y');
+        } elseif ($ctx['hasta']) {
+            $rango = 'Hasta el ' . Carbon::parse($ctx['hasta'])->format('d/m/Y');
+        }
+        if (in_array($tipo, ['atrasados', 'clientes'], true)) {
+            $rango = null;
+        }
+        return [
+            'logo' => $logo,
+            'sucursal' => $this->nombreSeleccion($ctx),
+            'titulo' => 'Reporte de ' . self::TIPOS[$tipo],
+            'rango' => $rango,
+            'generado' => $this->nombreSeleccion($ctx) . ' · Generado por ' . $request->user()->name . ' el ' . now()->format('d/m/Y H:i'),
+        ];
     }
 
     // ------------------------------------------------------------------
@@ -712,7 +754,7 @@ class ReporteController extends Controller
                     ],
                 ];
 
-                            case 'clientes':
+            case 'clientes':
                 $todas = $sel === 'todas';
 
                 $base = DB::table($c)->leftJoin($s, "$s.id", '=', "$c.sucursal_id");
