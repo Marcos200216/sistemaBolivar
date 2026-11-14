@@ -4,7 +4,6 @@
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithCustomStartCell;
 use Maatwebsite\Excel\Concerns\WithDrawings;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -32,7 +31,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  * @param array|null $encabezado   ['logo' => ruta absoluta|null, 'sucursal' => str, 'titulo' => str,
  *                                  'rango' => str|null, 'generado' => str]. Si es null no se dibuja.
  */
-class ReporteExport implements FromArray, WithHeadings, ShouldAutoSize, WithStyles, WithTitle, WithCustomStartCell, WithDrawings
+class ReporteExport implements FromArray, WithHeadings, WithStyles, WithTitle, WithCustomStartCell, WithDrawings
 {
     private const AZUL_OSCURO = 'FF1F3864';
     private const AZUL_MEDIO = 'FF2F5597';
@@ -166,6 +165,68 @@ class ReporteExport implements FromArray, WithHeadings, ShouldAutoSize, WithStyl
         return $out;
     }
 
+        /** Ancho de columnas según el contenido de la tabla (sin contar el texto del encabezado del reporte). */
+    private function ajustarAnchos(Worksheet $sheet): void
+    {
+        $anchos = [];
+
+        $medir = function (int $col, $valor, bool $dinero = false, bool $negrita = false) use (&$anchos) {
+            if ($valor === null || $valor === '') {
+                return;
+            }
+            if (is_float($valor) || is_int($valor)) {
+                $largo = $dinero ? strlen(number_format((float) $valor, 2, '.', ' ')) + 3 : strlen((string) $valor) + 1;
+            } else {
+                $largo = mb_strlen((string) $valor);
+            }
+            if ($negrita) {
+                $largo = (int) ceil($largo * 1.15);
+            }
+            $anchos[$col] = max($anchos[$col] ?? 0, $largo);
+        };
+
+        foreach ($this->headings as $i => $t) {
+            $medir($i, $t, false, true);
+        }
+        foreach ($this->rows as $fila) {
+            foreach (array_values($fila) as $i => $v) {
+                $medir($i, $v, in_array($i, $this->moneyCols, true));
+            }
+        }
+        foreach ($this->resumen as $k => $fila) {
+            $medir(0, $fila[0] ?? null, false, true);
+            $medir(1, $fila[1] ?? null, in_array($k, $this->resumenMoney, true));
+        }
+
+               $ancho = [];
+        foreach ($anchos as $i => $largo) {
+            $ancho[$i] = min(max($largo + 4, 12), 60);
+        }
+
+        // Si la tabla es angosta para el encabezado, se ensanchan las columnas parejo
+        if ($this->encabezado !== null && $ancho) {
+            $m = $this->medidasLogo();
+            $sangriaPx = $m ? $m['ancho'] + 24 : 0;
+            $textoPx = 0;
+            foreach ($this->lineasEncabezado() as $l) {
+                $textoPx = max($textoPx, mb_strlen($l['texto']) * $l['size'] * 0.75);
+            }
+            $necesario = $sangriaPx + $textoPx + 30;
+            $actual = array_sum(array_map(fn($w) => $w * 7 + 5, $ancho));
+
+            if ($actual < $necesario) {
+                $extra = ($necesario - $actual) / 7 / count($ancho);
+                foreach ($ancho as $i => $w) {
+                    $ancho[$i] = $w + $extra;
+                }
+            }
+        }
+
+        foreach ($ancho as $i => $w) {
+            $letra = Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->getColumnDimension($letra)->setWidth($w);
+        }
+    }
     public function styles(Worksheet $sheet)
     {
         $ultCol = Coordinate::stringFromColumnIndex(max(1, count($this->headings)));
@@ -175,8 +236,9 @@ class ReporteExport implements FromArray, WithHeadings, ShouldAutoSize, WithStyl
 
         $sheet->setShowGridlines(false);
         $sheet->getDefaultRowDimension()->setRowHeight(self::ALTO_FILA_DATOS);
+                $this->ajustarAnchos($sheet);
 
-        // ---------- Encabezado del reporte (logo a la izquierda, textos a la derecha) ----------
+                // ---------- Encabezado del reporte (logo a la izquierda, textos a la derecha) ----------
         if ($this->encabezado !== null) {
             $m = $this->medidasLogo();
             $sangria = $m ? (int) ceil(($m['ancho'] + 24) / self::PX_POR_SANGRIA) : 0;
@@ -199,7 +261,7 @@ class ReporteExport implements FromArray, WithHeadings, ShouldAutoSize, WithStyl
                 $fila++;
             }
 
-            // Barra azul de lado a lado
+            // Barra azul: llega exactamente hasta la última columna de la tabla
             $sheet->getStyle("A{$fila}:{$ultCol}{$fila}")->applyFromArray([
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => self::AZUL_OSCURO]],
             ]);
@@ -208,7 +270,6 @@ class ReporteExport implements FromArray, WithHeadings, ShouldAutoSize, WithStyl
             // Espacio antes de la tabla
             $sheet->getRowDimension($fila + 1)->setRowHeight(self::ALTO_ESPACIO);
         }
-
         // ---------- Encabezados de columna ----------
         $sheet->getStyle("A{$h}:{$ultCol}{$h}")->applyFromArray([
             'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF'], 'size' => 12],
