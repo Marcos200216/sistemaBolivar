@@ -63,4 +63,8 @@ class Operacion extends Model
     {
         return $this->belongsTo(Cliente::class, 'traspaso_cliente_id');
     }
+    public function descuentos()
+{
+    return $this->hasMany(Descuento::class);
+}
 }

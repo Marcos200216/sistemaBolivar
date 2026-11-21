@@ -10,6 +10,7 @@ class ReciboEnvio extends Model
     public const FALLIDO = 'fallido';
     public const INVALIDO = 'invalido';
     public const SIN_TELEFONO = 'sin_telefono';
+        public const SOLO_RESPALDO = 'solo_respaldo';
 
     protected $table = 'recibo_envios';
 

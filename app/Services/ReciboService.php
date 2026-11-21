@@ -23,6 +23,9 @@ class ReciboService
 
     public function emitir(Operacion $operacion, ?int $usuarioId = null): ?ReciboEnvio
     {
+                if ($operacion->descuentos()->exists()) {
+            return $this->respaldar($operacion, $usuarioId);
+        }
         try {
             try {
                 $ruta = $this->guardarPdf($operacion);
@@ -44,8 +47,51 @@ class ReciboService
         }
     }
 
+        /**
+     * Respaldo sin WhatsApp (visitas de solo descuento): guarda el PDF y lo registra
+     * en recibo_envios con estado "solo_respaldo". No toca Meta. Es idempotente.
+     */
+    public function respaldar(Operacion $operacion, ?int $usuarioId = null): ?ReciboEnvio
+    {
+        try {
+            $previo = ReciboEnvio::where('operacion_id', $operacion->id)
+                ->whereNotNull('ruta_pdf')
+                ->latest('id')
+                ->first();
+
+            if ($previo && Storage::disk('comprobantes')->exists($previo->ruta_pdf)) {
+                return $previo;
+            }
+
+            try {
+                $ruta = $this->guardarPdf($operacion);
+            } catch (Throwable $e) {
+                report($e);
+
+                return $this->registrar($operacion, [
+                    'estado' => ReciboEnvio::FALLIDO,
+                    'error' => $this->recortar('No se pudo generar o guardar el PDF: ' . $e->getMessage()),
+                    'reenviado_por' => $usuarioId,
+                ]);
+            }
+
+            return $this->registrar($operacion, [
+                'estado' => ReciboEnvio::SOLO_RESPALDO,
+                'ruta_pdf' => $ruta,
+                'reenviado_por' => $usuarioId,
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
     public function reenviar(Operacion $operacion, ?int $usuarioId = null): ?ReciboEnvio
     {
+                if ($operacion->descuentos()->exists()) {
+            return $this->respaldar($operacion, $usuarioId);
+        }
         try {
             $previo = ReciboEnvio::where('operacion_id', $operacion->id)
                 ->whereNotNull('ruta_pdf')

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Abono;
 use App\Models\Cliente;
+use App\Models\Descuento;
 use App\Models\Devolucion;
 use App\Models\Factura;
 use App\Models\Operacion;
@@ -118,6 +119,7 @@ class AbonoController extends Controller
         $facturas = Factura::where('cliente_id', $cliente->id)->withCount('lineas')->get();
         $facturasPorId = $facturas->keyBy('id');
         $devoluciones = Devolucion::where('cliente_id', $cliente->id)->get();
+                $descuentos = Descuento::where('cliente_id', $cliente->id)->get();
         $ops = Operacion::withoutGlobalScopes()->where('cliente_id', $cliente->id)->get()->keyBy('id');
 
         // Traspasos: nombre del otro cliente para mostrar "a quién / de quién".
@@ -303,6 +305,42 @@ class AbonoController extends Controller
                 'sinpe' => 0.0,
                 'efecto' => -$total,
                 'detalle' => $motivo ? 'Motivo: ' . $motivo : null,
+                'saldo' => null,
+            ];
+        }
+
+                // Descuentos (van solos en su visita; en Azur un descuento puede repartirse en varias facturas)
+        foreach ($descuentos->groupBy('operacion_id') as $grupo) {
+            $p = $grupo->first();
+            $monto = round((float) $grupo->sum('monto'), 2);
+
+            $aplicado = $grupo->pluck('factura_id')->unique()->map(function ($fid) use ($facturasPorId, $numeroFactura) {
+                if (!$fid) {
+                    return 'deuda anterior';
+                }
+                $f = $facturasPorId->get($fid);
+                if (!$f) {
+                    return null;
+                }
+                $n = $numeroFactura($f);
+                return $n ? 'N° ' . $n : 'una factura';
+            })->filter()->values();
+
+            $items[] = [
+                'tipo' => 'descuento',
+                'etiqueta' => 'Descuento',
+                'es_traspaso' => false,
+                'orden' => 1,
+                'id' => $p->id,
+                'operacion_id' => $p->operacion_id,
+                'abono_id' => null,
+                'factura_id' => null,
+                'fecha_obj' => $momento($p->operacion_id, $p->created_at),
+                'monto' => $monto,
+                'efectivo' => 0.0,
+                'sinpe' => 0.0,
+                'efecto' => -$monto,
+                'detalle' => 'Motivo: ' . $p->motivo . ($aplicado->isNotEmpty() ? ' · Aplicado a: ' . $aplicado->implode(', ') : ''),
                 'saldo' => null,
             ];
         }

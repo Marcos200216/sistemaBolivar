@@ -609,6 +609,8 @@
                     id="punto-abono" style="display:none;"></span></button>
             <button type="button" class="tab-btn" data-tab="devolucion" onclick="irATab('devolucion')">Devolución<span
                     class="punto" id="punto-devolucion" style="display:none;"></span></button>
+                    <button type="button" class="tab-btn" data-tab="descuento" onclick="irATab('descuento')">Descuento<span
+        class="punto" id="punto-descuento" style="display:none;"></span></button>
         </div>
         <p class="ayuda-tabs">El número azul indica lo que ya agregaste en esa pestaña. Todo se guarda junto desde
             Principal.</p>
@@ -632,6 +634,7 @@
             <div class="resumen-final">
                 <div class="fila"><span>Saldo inicial</span><span id="r-inicial">₡0.00</span></div>
                 <div class="fila"><span>Devoluciones</span><span id="r-devolucion">− ₡0.00</span></div>
+                <div class="fila"><span>Descuento</span><span id="r-descuento">− ₡0.00</span></div>
                 <div class="fila"><span>Venta a crédito</span><span id="r-credito">+ ₡0.00</span></div>
                 <div class="fila"><span>Saldo a favor aplicado</span><span id="r-favor">₡0.00</span></div>
                 <div class="fila"><span>Abono</span><span id="r-abono">− ₡0.00</span></div>
@@ -808,6 +811,25 @@
             <button type="button" class="btn btn-primario btn-bloque" onclick="confirmarDevolucion()">Agregar devolución
                 a la lista</button>
         </div>
+                {{-- ===================== DESCUENTO ===================== --}}
+        <div class="seccion" id="seccion-descuento">
+                        <p class="ayuda-tabs">Un descuento se hace solo: al agregarlo, Venta, Abono y Devolución quedan bloqueadas.</p>
+            <div class="tarjeta">
+                <h3 id="desc-titulo">Cuenta</h3>
+                <div id="lista-cuentas-desc"></div>
+            </div>
+            <div class="tarjeta">
+                <h3>Monto del descuento</h3>
+                <div class="campo">
+                    <label>Monto a descontar (₡)</label>
+                    <input type="number" id="desc-monto" min="0" step="0.01" inputmode="decimal" value="0"
+                        oninput="recalcularDescuento()">
+                </div>
+                <p id="desc-hint" style="font-size:13px; margin:8px 0 0;"></p>
+            </div>
+            <button type="button" class="btn btn-primario btn-bloque" onclick="confirmarDescuento()">Agregar descuento
+                a la lista</button>
+        </div>
     </div>
 @endsection
 
@@ -846,6 +868,7 @@
         let ventaBloqueada = false; // true cuando ya se confirmó una venta a crédito
         let abono = null;
         let devoluciones = [];
+        let descuentoVisita = null; // { monto, motivo, factura_id, _label }
         let noAbono = false;
         let noAbonoDescripcion = '';
 
@@ -875,7 +898,7 @@
         // avisa al restaurar que hay que volver a adjuntarla antes de guardar.
 
         function guardarBorrador() {
-            if (!cliente || !(venta || abono || devoluciones.length || noAbono)) {
+            if (!cliente || !(venta || abono || devoluciones.length || descuentoVisita || noAbono)) {
                 localStorage.removeItem(BORRADOR_KEY);
                 return;
             }
@@ -883,6 +906,7 @@
                 localStorage.setItem(BORRADOR_KEY, JSON.stringify({
                     clienteId: cliente.id,
                     rutaClienteId: rutaClienteVisita,
+                                        descuento: descuentoVisita,
                     venta,
                     abono,
                     devoluciones,
@@ -933,6 +957,7 @@
             venta = borrador.venta ?? null;
             abono = borrador.abono ?? null;
             devoluciones = borrador.devoluciones ?? [];
+                        descuentoVisita = borrador.descuento ?? null;
             noAbono = borrador.noAbono ?? false;
             noAbonoDescripcion = borrador.noAbonoDescripcion ?? '';
 
@@ -1005,7 +1030,7 @@
          */
         async function seleccionarCliente(id, esRestauracion = false) {
             if (!esRestauracion) {
-                if (venta || abono || devoluciones.length) {
+                if (venta || abono || devoluciones.length || descuentoVisita) {
                     const r = await Swal.fire({
                         title: '¿Cambiar de cliente?',
                         text: 'Se va a vaciar todo lo agregado en esta visita.',
@@ -1083,14 +1108,17 @@
 
         function irATab(nombre) {
             if (noAbono && nombre !== 'principal') return;
+                        if (descuentoVisita && ['venta', 'abono', 'devolucion'].includes(nombre)) return;
+            if ((venta || abono || devoluciones.length) && nombre === 'descuento') return;
             if (nombre === 'venta' && ventaBloqueada) return;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('activo', b.dataset.tab === nombre));
             document.querySelectorAll('.seccion').forEach(s => s.classList.toggle('activa', s.id === `seccion-${nombre}`));
             if (nombre === 'abono' && cliente) recalcularAbono();
+                        if (nombre === 'descuento' && cliente) pintarCuentasDescuento(false);
         }
 
         function alternarNoAbono() {
-            if (venta || abono || devoluciones.length) {
+            if (venta || abono || devoluciones.length || descuentoVisita) {
                 $('chk-no-abono').checked = false;
                 Swal.fire('No se puede', 'Ya hay una venta, abono o devolución agregada en esta visita.', 'info');
                 return;
@@ -1113,9 +1141,11 @@
          * cuántas devoluciones. Se recalcula cada vez que se repinta Principal.
          */
         function actualizarIndicadores() {
+                        actualizarBloqueoTabs();
             const items = [
                 ['punto-venta', venta?._filas?.length ?? 0, 'producto(s) en la venta'],
                 ['punto-abono', abono ? 1 : 0, 'abono agregado'],
+                                ['punto-descuento', descuentoVisita ? 1 : 0, 'descuento agregado'],
                 ['punto-devolucion', devoluciones.length, 'devolución(es) agregada(s)'],
             ];
             items.forEach(([id, n, texto]) => {
@@ -1352,7 +1382,8 @@
         function saldoTrasDevoluciones() {
             if (!cliente) return 0;
             const devolucionTotal = devoluciones.reduce((a, d) => a + (d._estimado || 0), 0);
-            return cliente.saldo_actual - devolucionTotal;
+                        const descuentoTotal = descuentoVisita ? descuentoVisita.monto : 0;
+            return cliente.saldo_actual - devolucionTotal - descuentoTotal;
         }
 
         /**
@@ -1596,7 +1627,8 @@
             const devuelto = devoluciones
                 .filter(d => d.factura_id === facturaId)
                 .reduce((a, d) => a + (d._estimado || 0), 0);
-            return Math.max(0, f.pendiente - devuelto);
+                        const descontado = (descuentoVisita && descuentoVisita.factura_id === facturaId) ? descuentoVisita.monto : 0;
+            return Math.max(0, f.pendiente - devuelto - descontado);
         }
 
         /** Tope del abono según el destino elegido: la factura específica o el saldo total. */
@@ -1847,6 +1879,196 @@
             pintarPrincipal();
         }
 
+                // ---------------- Descuento ----------------
+        const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+        const cts = (v) => Math.round(Number(v || 0) * 100);
+
+        /** Saldo tras las devoluciones de la visita: el descuento se aplica después de ellas y antes de la venta. */
+        function saldoParaDescuento() {
+            if (!cliente) return 0;
+            const dev = devoluciones.reduce((a, d) => a + (d._estimado || 0), 0);
+            return cliente.saldo_actual - dev;
+        }
+
+        function pendienteFacturaDesc(facturaId) {
+            const f = cuentas.facturas_credito.find(x => x.id === facturaId);
+            if (!f) return 0;
+            const devuelto = devoluciones.filter(d => d.factura_id === facturaId)
+                .reduce((a, d) => a + (d._estimado || 0), 0);
+            return Math.max(0, f.pendiente - devuelto);
+        }
+
+        /** Tope (el descuento tiene que ser MENOR): Azur = saldo total; Guana = pendiente de la factura elegida. */
+        function topeDescuento() {
+            if (MUEVE_STOCK) return Math.max(0, saldoParaDescuento());
+            const sel = document.querySelector('input[name="desc-destino"]:checked');
+            return sel ? pendienteFacturaDesc(parseInt(sel.value, 10)) : 0;
+        }
+
+        /** Revisa el descuento ya agregado contra lo que hay ahora en la visita (por si se agregó una devolución después). */
+        function errorDescuento() {
+            if (!descuentoVisita) return null;
+            const tope = MUEVE_STOCK ?
+                Math.max(0, saldoParaDescuento()) :
+                pendienteFacturaDesc(descuentoVisita.factura_id);
+            if (cts(descuentoVisita.monto) >= cts(tope)) {
+                return `Ya no es válido: tiene que ser menor a ${colones(tope)}. Quitalo y volvé a agregarlo.`;
+            }
+            return null;
+        }
+
+        function pintarCuentasDescuento(resetear = true) {
+            if (!cliente || !cuentas) return;
+            const previo = document.querySelector('input[name="desc-destino"]:checked')?.value;
+
+            if (MUEVE_STOCK) {
+                $('desc-titulo').textContent = 'Cuenta del cliente';
+                $('lista-cuentas-desc').innerHTML = `<div class="radio-item">
+                    <span>Deuda total del cliente (se descuenta de la más vieja a la más nueva)</span>
+                    <span class="der">${colones(Math.max(0, saldoParaDescuento()))}</span></div>`;
+            } else {
+                $('desc-titulo').textContent = 'Cuenta a descontar';
+                let n = 0;
+                const filas = cuentas.facturas_credito.map(f => {
+                    const pend = pendienteFacturaDesc(f.id);
+                    if (pend <= 0) return '';
+                    n++;
+                    return `<label class="radio-item">
+                        <input type="radio" name="desc-destino" value="${f.id}" onchange="recalcularDescuento()">
+                        <span>Factura #${f.numero ?? f.id} (${f.fecha}${f.migrada ? ' · sistema anterior' : ''})</span>
+                        <span class="der">${colones(pend)}</span></label>`;
+                }).join('');
+                $('lista-cuentas-desc').innerHTML = filas ||
+                    '<div class="estado-vacio">El cliente no tiene cuentas activas para descontar.</div>';
+                const prev = previo ? document.querySelector(`input[name="desc-destino"][value="${previo}"]`) : null;
+                if (prev) prev.checked = true;
+                else if (n === 1) document.querySelector('input[name="desc-destino"]').checked = true;
+            }
+
+            if (resetear) $('desc-monto').value = 0;
+            recalcularDescuento();
+        }
+
+        function recalcularDescuento() {
+            const monto = parseFloat($('desc-monto').value || '0');
+            const hint = $('desc-hint');
+            if (!MUEVE_STOCK && !document.querySelector('input[name="desc-destino"]:checked')) {
+                hint.style.color = '';
+                hint.textContent = 'Elegí la cuenta a la que le vas a descontar.';
+                return;
+            }
+            const tope = topeDescuento();
+            if (tope <= 0) {
+                hint.style.color = '#a30000';
+                hint.textContent = 'No hay deuda a la que se le pueda descontar.';
+            } else if (cts(monto) >= cts(tope)) {
+                hint.style.color = '#a30000';
+                hint.textContent = `El descuento tiene que ser menor a ${colones(tope)}.`;
+            } else {
+                hint.style.color = '';
+                hint.textContent = `Tiene que ser menor a ${colones(tope)}.` +
+                    (monto > 0 ? ` Quedaría debiendo ${colones(tope - monto)}.` : '');
+            }
+        }
+
+        async function confirmarDescuento() {
+            if (descuentoVisita) {
+                Swal.fire('Ya hay un descuento', 'Solo se puede aplicar un descuento por visita. Quitá el actual si querés cambiarlo.', 'info');
+                return;
+            }
+            const monto = Math.round(parseFloat($('desc-monto').value || '0') * 100) / 100;
+            if (!(monto > 0)) {
+                Swal.fire('Monto requerido', 'Escribí el monto del descuento.', 'error');
+                return;
+            }
+
+            let facturaId = null;
+            let label = 'Deuda total del cliente';
+            if (!MUEVE_STOCK) {
+                const sel = document.querySelector('input[name="desc-destino"]:checked');
+                if (!sel) {
+                    Swal.fire('Elegí la cuenta', 'Elegí a qué factura le vas a descontar.', 'error');
+                    return;
+                }
+                facturaId = parseInt(sel.value, 10);
+                const f = cuentas.facturas_credito.find(x => x.id === facturaId);
+                label = 'Factura #' + (f?.numero ?? facturaId);
+            }
+
+            const tope = topeDescuento();
+            if (cts(monto) >= cts(tope)) {
+                Swal.fire('Descuento muy alto', `Tiene que ser menor a ${colones(tope)}.`, 'error');
+                return;
+            }
+
+            // Si ya hay un abono en la visita, tiene que seguir cabiendo después del descuento
+            if (abono) {
+                const s2Nuevo = calcularS2().s2 - monto;
+                const topeFactura = (facturaId !== null && abono.factura_id === facturaId) ?
+                    pendienteFacturaAbono(facturaId) - monto : Infinity;
+                if (abono._monto > Math.min(s2Nuevo, topeFactura) + 0.005) {
+                    Swal.fire('El abono ya no cabe',
+                        'Con ese descuento el abono de esta visita queda más grande que la deuda. Quitá el abono y agregalo de nuevo después del descuento.',
+                        'error');
+                    return;
+                }
+            }
+
+            const r = await Swal.fire({
+                title: 'Motivo del descuento',
+                text: `${label} · ${colones(monto)}`,
+                input: 'text',
+                inputPlaceholder: 'Ej: acuerdo con el cliente',
+                inputAttributes: { maxlength: 500 },
+                showCancelButton: true,
+                confirmButtonText: 'Agregar descuento',
+                cancelButtonText: 'Cancelar',
+                inputValidator: (v) => (!v || !v.trim()) ? 'Escribí el motivo del descuento.' : undefined,
+            });
+            if (!r.isConfirmed) return;
+
+            descuentoVisita = { monto, motivo: r.value.trim(), factura_id: facturaId, _label: label };
+            $('desc-monto').value = 0;
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Descuento agregado',
+                showConfirmButton: false,
+                timer: 1800
+            });
+            irATab('principal');
+            pintarPrincipal();
+        }
+
+        function quitarDescuento() {
+            descuentoVisita = null;
+            pintarPrincipal();
+        }
+                /** El descuento va solo: con un descuento agregado se bloquean Venta, Abono y Devolución; con cualquiera de esos agregado se bloquea Descuento. */
+        function actualizarBloqueoTabs() {
+            const hayMovimiento = !!(venta || abono || devoluciones.length);
+            const hayDescuento = !!descuentoVisita;
+            const tab = (n) => document.querySelector(`.tab-btn[data-tab="${n}"]`);
+            const avisoDesc = 'Ya hay un descuento en esta visita. El descuento se hace solo.';
+
+            if (tab('descuento')) {
+                tab('descuento').disabled = noAbono || hayMovimiento;
+                tab('descuento').title = hayMovimiento ?
+                    'Ya hay una venta, abono o devolución en esta visita. El descuento se hace solo.' : '';
+            }
+            ['abono', 'devolucion'].forEach(n => {
+                if (tab(n)) {
+                    tab(n).disabled = noAbono || hayDescuento;
+                    tab(n).title = hayDescuento ? avisoDesc : '';
+                }
+            });
+            $('tab-venta').disabled = noAbono || hayDescuento || ventaBloqueada;
+            $('tab-venta').title = hayDescuento ? avisoDesc : '';
+        }
+
         function quitarDevolucion(i) {
             devoluciones.splice(i, 1);
             pintarPrincipal();
@@ -1915,6 +2137,15 @@
                     <button type="button" class="btn btn-texto" onclick="quitarDevolucion(${i})">Quitar</button></div>
                 </div></div>`);
             });
+                        if (descuentoVisita) {
+                const errDesc = errorDescuento();
+                bloques.push(`<div class="tarjeta">
+                <div class="fila-linea">
+                    <div><div class="desc">Descuento</div><div class="sub">${escHtml(descuentoVisita._label)} · ${escHtml(descuentoVisita.motivo)}</div>${errDesc ? `<div class="sub" style="color:#a30000;">${errDesc}</div>` : ''}</div>
+                    <div style="display:flex; align-items:center; gap:10px;"><span class="monto">${colones(descuentoVisita.monto)}</span>
+                    <button type="button" class="btn btn-texto" onclick="quitarDescuento()">Quitar</button></div>
+                </div></div>`);
+            }
             $('lista-principal').innerHTML = bloques.join('') ||
                 '<div class="estado-vacio">Todavía no agregaste nada en esta visita.</div>';
 
@@ -1943,6 +2174,7 @@
             const s3 = s2 - montoAbono;
 
             $('r-inicial').textContent = colones(s0);
+                        $('r-descuento').textContent = '− ' + colones(descuentoVisita ? descuentoVisita.monto : 0);
             $('r-devolucion').textContent = '− ' + colones(devolucionTotal);
             $('r-credito').textContent = '+ ' + colones(ventaCredito);
             $('r-favor').textContent = colones(favorAplicado);
@@ -1958,7 +2190,7 @@
          *   pregunta (se usa internamente al cambiar o quitar cliente).
          */
         async function reiniciarTodo(preguntar = true) {
-            if (preguntar && (venta || abono || devoluciones.length || noAbono)) {
+            if (preguntar && (venta || abono || devoluciones.length || descuentoVisita || noAbono)) {
                 const r = await Swal.fire({
                     title: '¿Cancelar la visita?',
                     text: 'Se va a perder todo lo agregado hasta ahora.',
@@ -2008,7 +2240,8 @@
             $('abono-sinpe').value = 0;
             $('abono-foto').value = '';
             $('campo-foto-abono').style.display = 'none';
-
+            descuentoVisita = null;
+            $('desc-monto').value = 0;
             pintarLineasVenta();
             if (cliente) {
                 pintarPrincipal();
@@ -2019,8 +2252,13 @@
         }
 
         async function guardarOperacion() {
-            if (!noAbono && !venta && !abono && !devoluciones.length) {
+            if (!noAbono && !venta && !abono && !devoluciones.length && !descuentoVisita) {
                 Swal.fire('Nada para guardar', 'Agregá algo o marcá que el cliente no abonó.', 'error');
+                return;
+            }
+                        const errDesc = descuentoVisita ? errorDescuento() : null;
+            if (errDesc) {
+                Swal.fire('Revisá el descuento', errDesc, 'error');
                 return;
             }
 
@@ -2066,6 +2304,14 @@
                 }));
             }
 
+                        if (descuentoVisita) {
+                payload.descuento = {
+                    monto: descuentoVisita.monto,
+                    motivo: descuentoVisita.motivo,
+                    factura_id: descuentoVisita.factura_id
+                };
+            }
+
             const formData = new FormData();
             formData.append('payload', JSON.stringify(payload));
             if (fotoVenta) formData.append('foto_venta', fotoVenta);
@@ -2087,9 +2333,10 @@
                     return;
                 }
                 borrarBorrador();
+                             
                 // Recibo por WhatsApp en una petición aparte, para que guardar no espere a Meta.
                 // keepalive hace que el navegador la termine aunque se salgan de la pantalla.
-                fetch(URL_RECIBO.replace('__ID__', datos.operacion.id), {
+                                fetch(URL_RECIBO.replace('__ID__', datos.operacion.id), {
                     method: 'POST',
                     headers: {
                         Accept: 'application/json',

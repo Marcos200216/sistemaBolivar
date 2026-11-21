@@ -194,7 +194,8 @@ class RebajarFactura extends Command
             $base = (float) $f->total;
         }
 
-        return max(0.0, round($base - (float) $abonos->sum('monto_abono') - (float) $devs->sum('total'), 2));
+        $descuentos = (float) DB::table('descuentos')->where('factura_id', $f->id)->sum('monto');
+return max(0.0, round($base - (float) $abonos->sum('monto_abono') - (float) $devs->sum('total') - $descuentos, 2));
     }
 
     private function revertir(string $archivo, string $bd): int

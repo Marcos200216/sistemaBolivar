@@ -268,6 +268,35 @@
             </table>
         @endif
 
+
+                {{-- ===== Descuento ===== --}}
+        @if ($operacion->descuentos->isNotEmpty())
+            <div class="seccion">Descuento</div>
+            <table class="tabla">
+                <thead>
+                    <tr><th>Aplicado a</th><th class="monto">Monto</th></tr>
+                </thead>
+                <tbody>
+                    @foreach ($operacion->descuentos as $ds)
+                        @php
+                            $fd = $ds->factura;
+                            $numFd = $fd ? ($fd->operacion_id ? $fd->operacion?->numero : $fd->factura_id_legacy) : null;
+                        @endphp
+                        <tr>
+                            <td>{{ $fd ? 'Factura #' . ($numFd ?? $fd->id) : 'Deuda del sistema anterior' }}</td>
+                            <td class="monto">₡{{ number_format($ds->monto, 2) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr class="fila-total">
+                        <td>Total descontado</td>
+                        <td class="monto">₡{{ number_format($operacion->descuentos->sum('monto'), 2) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div class="linea-info">Motivo: {{ $operacion->descuentos->first()->motivo }}</div>
+        @endif
         {{-- ===== Traspaso de cuenta ===== --}}
         @if (!empty($traspaso))
             <div class="seccion">Traspaso de cuenta</div>

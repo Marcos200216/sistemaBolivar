@@ -450,6 +450,27 @@
             color: #1d4ed8;
         }
 
+                .fila-recibo.descuento {
+            padding: 10px 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-bottom: none;
+            background: #f3ecff;
+            border-left: 4px solid #7c3aed;
+        }
+
+        .fila-recibo.descuento .monto {
+            color: #6d28d9;
+        }
+
+        .descuento .pill {
+            background: #e4d5ff;
+            color: #5b21b6;
+        }
+
+        .leyenda .l-descuento::before {
+            background: #7c3aed;
+        }
         .fila-recibo.sin-abono {
             opacity: .65;
         }
@@ -644,6 +665,7 @@
                     <div class="leyenda" id="mh-leyenda">
                         <span class="l-compra">Compra: suma a la cuenta</span>
                         <span class="l-devolucion">Devolución: resta</span>
+                                                <span class="l-descuento">Descuento: resta</span>
                         <span class="l-abono">Abono: resta</span>
                     </div>
                 </div>
@@ -677,6 +699,7 @@
             factura: { pdf: URL_RECIBO_FACTURA_PDF, reenviar: URL_RECIBO_FACTURA_REENVIAR },
         };
         const ESTADO_RECIBO = {
+                        solo_respaldo: 'solo respaldo',
             enviado: 'Enviado',
             fallido: 'Falló el envío',
             invalido: 'Teléfono inválido',
@@ -982,6 +1005,7 @@
             const clase = ({
                 compra: 'compra',
                 devolucion: 'devolucion',
+                                descuento: 'descuento',
                 abono: 'abono',
                 sin_abono: 'sin-abono'
             } [h.tipo] || '') + (h.es_traspaso ? ' traspaso' : '');
@@ -990,6 +1014,7 @@
             if (h.tipo === 'compra') monto = h.efecto > 0 ? `+ ${colones(h.efecto)}` : colones(0);
             else if (h.tipo === 'devolucion') monto = `− ${colones(Math.abs(h.efecto))}`;
             else if (h.tipo === 'abono') monto = `− ${colones(h.monto)}`;
+                        else if (h.tipo === 'descuento') monto = `− ${colones(h.monto)}`;
             else if (h.tipo === 'traspaso') monto = h.efecto > 0 ? `+ ${colones(h.efecto)}` : `− ${colones(Math.abs(h.efecto))}`;
             else monto = colones(0);
 
@@ -1039,6 +1064,11 @@
             const ref = referenciaRecibo(h);
             if (!ref) return '';
             const [tipo, id] = ref;
+                        if (h.tipo === 'descuento') {
+                return (h.recibo && h.recibo.pdf) ?
+                    `<div class="recibo-acciones"><a href="${RECIBO_URLS[tipo].pdf.replace('__ID__', id)}" target="_blank">Ver PDF guardado</a><div class="sub">Respaldo, no se envía por WhatsApp</div></div>` :
+                    '';
+            }
             const r = h.recibo;
             const ver = r && r.pdf ?
                 `<a href="${RECIBO_URLS[tipo].pdf.replace('__ID__', id)}" target="_blank">Ver PDF enviado</a> · ` :

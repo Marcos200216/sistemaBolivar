@@ -6,6 +6,7 @@ namespace App\Services;
 use App\Enums\EstadoFactura;
 use App\Models\Abono;
 use App\Models\Cliente;
+use App\Models\Descuento;
 use App\Models\Devolucion;
 use App\Models\Factura;
 use App\Models\Operacion;
@@ -34,7 +35,7 @@ class ComprobantePdfService
      */
     public function tipoDocumento(Operacion $operacion): array
     {
-        $operacion->loadMissing('facturas.lineas', 'abonos', 'devoluciones');
+        $operacion->loadMissing('facturas.lineas', 'abonos', 'devoluciones', 'descuentos');
 
         if ($operacion->tipo === 'traspaso') {
             return ['titulo' => 'Comprobante de traspaso de cuenta', 'slug' => 'traspaso-cuenta'];
@@ -42,6 +43,9 @@ class ComprobantePdfService
 
         if ($operacion->no_abono) {
             return ['titulo' => 'Comprobante de visita', 'slug' => 'visita'];
+        }
+                if ($operacion->descuentos->isNotEmpty()) {
+            return ['titulo' => 'Nota de descuento', 'slug' => 'nota-descuento'];
         }
 
         $compra = $operacion->facturas->isNotEmpty() && $operacion->facturas->first()->lineas->isNotEmpty();
@@ -77,7 +81,7 @@ class ComprobantePdfService
      */
     public function datos(Operacion $operacion, bool $paraPdf): array
     {
-        $operacion->load('cliente', 'user', 'sucursal', 'facturas.lineas', 'abonos', 'devoluciones.lineas');
+        $operacion->load('cliente', 'user', 'sucursal', 'facturas.lineas', 'abonos', 'devoluciones.lineas', 'descuentos');
 
         $canal = $operacion->sucursal->canal ?? 'normal';
         $nombreCanal = $canal === 'mayorista' ? 'Distribuidora Guana' : 'Distribuidora Azur';
@@ -126,7 +130,8 @@ class ComprobantePdfService
 
         // Facturas migradas: solo entran como fila si ESTA operación les movió algo.
         $idsMigradasMovidas = Abono::where('operacion_id', $operacion->id)->whereNotNull('factura_id')->pluck('factura_id')
-            ->merge(Devolucion::where('operacion_id', $operacion->id)->pluck('factura_id'))
+                    ->merge(Devolucion::where('operacion_id', $operacion->id)->pluck('factura_id'))
+            ->merge(Descuento::where('operacion_id', $operacion->id)->whereNotNull('factura_id')->pluck('factura_id'))
             ->unique()->values();
 
         $facturas = Factura::query()
@@ -157,13 +162,15 @@ class ComprobantePdfService
             $abonadoEsta = $c(Abono::where('factura_id', $f->id)->where('operacion_id', $operacion->id)->sum('monto_abono'));
             $devueltoHasta = $c(Devolucion::where('factura_id', $f->id)->where('operacion_id', '<=', $operacion->id)->sum('total'));
             $devueltoEsta = $c(Devolucion::where('factura_id', $f->id)->where('operacion_id', $operacion->id)->sum('total'));
+                        $descHasta = $c(Descuento::where('factura_id', $f->id)->where('operacion_id', '<=', $operacion->id)->sum('monto'));
+            $descEsta = $c(Descuento::where('factura_id', $f->id)->where('operacion_id', $operacion->id)->sum('monto'));
 
             $creada = (int) $f->operacion_id === (int) $operacion->id;
 
-            $despues = max(0, $total - $abonadoHasta - $devueltoHasta);
+                        $despues = max(0, $total - $abonadoHasta - $devueltoHasta - $descHasta);
             $antes = $creada
                 ? 0
-                : max(0, $total - ($abonadoHasta - $abonadoEsta) - ($devueltoHasta - $devueltoEsta));
+                               : max(0, $total - ($abonadoHasta - $abonadoEsta) - ($devueltoHasta - $devueltoEsta) - ($descHasta - $descEsta));
 
             if (!$creada && $antes === 0 && $despues === 0) {
                 continue; // ya estaba saldada antes de esta visita
@@ -192,7 +199,7 @@ class ComprobantePdfService
                 'antes' => $m($antes),
                 'mov' => $m($despues - $antes),
                                 'despues' => $m($despues),
-                'resaltar' => $abonadoEsta > 0,
+                'resaltar' => $abonadoEsta > 0 || $descEsta > 0,
                 'atraso' => $atraso,
             ];
         }
@@ -203,7 +210,8 @@ class ComprobantePdfService
 
         if ($resAntes !== 0 || $resDespues !== 0) {
             $idsNuevas = $facturas->pluck('id');
-            $abonoAlAnterior = $operacion->abonos->contains(fn ($a) => !$idsNuevas->contains($a->factura_id));
+                       $abonoAlAnterior = $operacion->abonos->contains(fn ($a) => !$idsNuevas->contains($a->factura_id))
+                || $operacion->descuentos->contains(fn ($d) => !$idsNuevas->contains($d->factura_id));
 
             $filas[] = [
                 'etiqueta' => ($resAntes < 0 || $resDespues < 0) ? 'Saldo a favor / ajustes' : 'Deuda del sistema anterior',

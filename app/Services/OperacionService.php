@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
+use App\Models\Descuento;
 
 
 /**
@@ -163,6 +164,9 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
     if (Abono::where('factura_id', $factura->id)->exists()) {
         throw new OperacionException('Esta factura ya tiene abonos registrados, no se puede anular. Hacé una devolución en su lugar.');
     }
+    if (Descuento::where('factura_id', $factura->id)->exists()) {
+    throw new OperacionException('Esta factura ya tiene descuentos registrados, no se puede anular. Hacé una devolución en su lugar.');
+}
     if (Devolucion::where('factura_id', $factura->id)->exists()) {
         throw new OperacionException('Esta factura ya tiene devoluciones registradas, no se puede anular.');
     }
@@ -523,13 +527,17 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
         $venta = $datos['venta'] ?? null;
         $abono = $datos['abono'] ?? null;
         $devoluciones = $datos['devoluciones'] ?? [];
+        $descuento = $datos['descuento'] ?? null;
 
-        if ($noAbono && ($venta || $abono || $devoluciones)) {
+        if ($noAbono && ($venta || $abono || $devoluciones || $descuento)) {
             throw new OperacionException('«No abonó» no se puede combinar con ventas, abonos ni devoluciones.');
         }
-        if (!$noAbono && !$venta && !$abono && !$devoluciones) {
+       if (!$noAbono && !$venta && !$abono && !$devoluciones && !$descuento) {
             throw new OperacionException('No hay nada para guardar.');
         }
+        if ($descuento && ($venta || $abono || $devoluciones)) {
+    throw new OperacionException('El descuento se aplica solo: no se puede combinar con ventas, abonos ni devoluciones en la misma visita.');
+}
 
         // Bloque 5 #2 — una factura no puede tener dos devoluciones en la misma visita,
         // ni recibir un abono específico si ya tiene devolución (el abono automático sí se permite)
@@ -578,6 +586,11 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
             $saldo -= $this->registrarDevolucion($operacion, $cliente, $mueveStock, $dev, $facturasTocadas);
         }
 
+
+        // 1b) Descuento (después de devoluciones, antes de la venta)
+if ($descuento) {
+    $saldo -= $this->registrarDescuento($operacion, $cliente, $sucursal, $descuento, $saldo, $facturasTocadas);
+}
         // 2) Venta
         $direccion = '';
         $facturaVentaActual = null;
@@ -912,6 +925,91 @@ private function ejecutarAnulacion(Factura $factura, ?string $motivo, ?int $user
         return [$factura, $saldoNuevo];
     }
 
+/** @return int monto descontado en céntimos */
+private function registrarDescuento(Operacion $op, Cliente $cliente, Sucursal $sucursal, array $desc, int $saldo, array &$facturasTocadas): int
+{
+    $monto = $this->c($desc['monto'] ?? 0);
+    if ($monto <= 0) {
+        throw new OperacionException('Escribí el monto del descuento.');
+    }
+
+    $motivo = trim((string) ($desc['motivo'] ?? ''));
+    if ($motivo === '') {
+        throw new OperacionException('Escribí el motivo del descuento.');
+    }
+    $motivo = mb_substr($motivo, 0, 500);
+
+    if ($saldo <= 0) {
+        throw new OperacionException('El cliente no tiene deuda a la que se le pueda descontar.');
+    }
+    if ($monto >= $saldo) {
+        throw new OperacionException('El descuento tiene que ser menor a lo que debe el cliente (' . $this->fmt($saldo) . ').');
+    }
+
+    // Deudas activas: facturas a crédito con pendiente, de la más vieja a la más nueva
+    $pendientes = [];
+    $sumaPendientes = 0;
+    foreach ($this->facturasCreditoAbiertas($cliente->id) as $f) {
+        $p = $this->pendiente($f);
+        if ($p > 0) {
+            $pendientes[$f->id] = $p;
+            $sumaPendientes += $p;
+        }
+    }
+    $residuoAntiguo = max(0, $saldo - $sumaPendientes);
+
+    $plan = []; // [factura_id|null, monto]
+    if ($sucursal->canal === 'normal') {
+        // Azur: baja el total de la cuenta, repartido como el abono automático
+        $resto = $monto;
+        if ($residuoAntiguo > 0) {
+            $t = min($resto, $residuoAntiguo);
+            $plan[] = [null, $t];
+            $resto -= $t;
+        }
+        foreach ($pendientes as $facturaId => $p) {
+            if ($resto <= 0) {
+                break;
+            }
+            $t = min($resto, $p);
+            $plan[] = [$facturaId, $t];
+            $resto -= $t;
+        }
+        if ($resto > 0) {
+            throw new OperacionException('No se pudo repartir el descuento entre las cuentas activas.');
+        }
+    } else {
+        // Guana: se elige una cuenta activa
+        $facturaId = (int) ($desc['factura_id'] ?? 0);
+        if (!$facturaId || !isset($pendientes[$facturaId])) {
+            throw new OperacionException('Elegí una cuenta activa del cliente para aplicar el descuento.');
+        }
+        if ($monto >= $pendientes[$facturaId]) {
+            throw new OperacionException('El descuento tiene que ser menor a lo que debe esa cuenta (' . $this->fmt($pendientes[$facturaId]) . ').');
+        }
+        $plan[] = [$facturaId, $monto];
+    }
+
+    $actual = $saldo;
+    foreach ($plan as [$facturaId, $m]) {
+        Descuento::create([
+            'operacion_id' => $op->id,
+            'cliente_id' => $cliente->id,
+            'factura_id' => $facturaId,
+            'saldo_inicial' => $this->m($actual),
+            'saldo_final' => $this->m($actual - $m),
+            'monto' => $this->m($m),
+            'motivo' => $motivo,
+        ]);
+        $actual -= $m;
+        if ($facturaId) {
+            $facturasTocadas[] = $facturaId;
+        }
+    }
+
+    return $monto;
+}
+
     // ------------------------------------------------------------------
     // Abono
     // ------------------------------------------------------------------
@@ -1096,10 +1194,11 @@ private function facturasCreditoAbiertas(int $clienteId)
         ->get();
 }
     /** Pendiente (céntimos) de una factura NUEVA: total − abonos − devoluciones. */
-   private function pendiente(Factura $f): int
+  private function pendiente(Factura $f): int
 {
     $abonos = Abono::where('factura_id', $f->id);
     $devs = Devolucion::where('factura_id', $f->id);
+    $descuentos = Descuento::where('factura_id', $f->id);
 
     if ($f->operacion_id === null) {
         // Migrada: saldo_migrado ya refleja lo abonado/devuelto en el sistema viejo
@@ -1110,7 +1209,10 @@ private function facturasCreditoAbiertas(int $clienteId)
         $base = $this->c($f->total);
     }
 
-    return max(0, $base - $this->c($abonos->sum('monto_abono')) - $this->c($devs->sum('total')));
+    return max(0, $base
+        - $this->c($abonos->sum('monto_abono'))
+        - $this->c($devs->sum('total'))
+        - $this->c($descuentos->sum('monto')));
 }
 
     private function actualizarEstados(array $facturaIds): void
